@@ -1,0 +1,33 @@
+{
+    "name": "示例角色",
+    "no": 1,
+    "height": 180,
+    "fatigue_all": 188,
+    "fatigue_reserved": 30,
+    "attack_center_x": 100,
+    "buff_effective": true,
+    "white_map_level": 2,
+    "buffs": [
+        ["up", "up", "space"]
+    ],
+    "candidate_hotkeys": ["q", "w", "e", "r", "t", "a", "s", "d", "f", "g", "h", "x"],
+    "custom_priority_skills": [
+        "q",
+        "w",
+        "e",
+        {
+            "name": "觉醒技能",
+            "hot_key": "r",
+            "cd": 60.0,
+            "animation_time": 2.0
+        }
+    ],
+    "powerful_skills": [
+        {
+            "name": "大招",
+            "hot_key": "t",
+            "cd": 30.0,
+            "animation_time": 1.5
+        }
+    ]
+}

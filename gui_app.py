@@ -1,0 +1,1790 @@
+﻿# -*- coding:utf-8 -*-
+"""
+DNF自动化脚本 - PyQt5 图形界面
+支持按钮和热键控制，日志输出到GUI
+"""
+
+__author__ = "723323692"
+__version__ = '1.0'
+
+import os
+import sys
+import json
+import threading
+import winsound
+from datetime import datetime
+
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, PROJECT_ROOT)
+
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QTabWidget, QGroupBox, QLabel, QSpinBox, QComboBox, QCheckBox,
+    QPushButton, QTextEdit, QRadioButton, QButtonGroup, QTableWidget,
+    QTableWidgetItem, QHeaderView, QMessageBox, QDialog, QLineEdit,
+    QFormLayout, QDialogButtonBox, QScrollArea
+)
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QObject, QTimer
+from PyQt5.QtGui import QFont, QTextCursor, QIcon, QPalette, QLinearGradient, QColor, QBrush
+
+# 配置文件路径
+ROLE_CONFIG_FILE = os.path.join(PROJECT_ROOT, 'role_config.json')
+GUI_CONFIG_FILE = os.path.join(PROJECT_ROOT, 'gui_config.json')
+
+
+class NoScrollSpinBox(QSpinBox):
+    """禁用滚轮的SpinBox"""
+    def wheelEvent(self, event):
+        event.ignore()
+
+
+class NoScrollComboBox(QComboBox):
+    """禁用滚轮的ComboBox"""
+    def wheelEvent(self, event):
+        event.ignore()
+
+
+class StdoutRedirector(QObject):
+    """标准输出重定向器"""
+    text_written = pyqtSignal(str)
+    
+    def write(self, text):
+        if text and text.strip():
+            self.text_written.emit(str(text))
+    
+    def flush(self):
+        pass
+
+
+class HotkeyListener(QThread):
+    """全局热键监听线程"""
+    start_signal = pyqtSignal()
+    stop_signal = pyqtSignal()
+    pause_signal = pyqtSignal()
+    
+    def __init__(self):
+        super().__init__()
+        self._running = True
+        self._last_trigger_time = {}  # 防抖动：记录每个热键的最后触发时间
+        self._debounce_interval = 0.3  # 防抖动间隔（秒），缩短到0.3秒
+    
+    def _debounced_emit(self, key, signal):
+        """带防抖动的信号发射"""
+        import time
+        current_time = time.time()
+        last_time = self._last_trigger_time.get(key, 0)
+        if current_time - last_time >= self._debounce_interval:
+            self._last_trigger_time[key] = current_time
+            signal.emit()
+    
+    def run(self):
+        try:
+            import keyboard
+            # 不使用suppress，避免影响热键响应
+            keyboard.add_hotkey('f10', lambda: self._debounced_emit('f10', self.start_signal))
+            keyboard.add_hotkey('end', lambda: self._debounced_emit('end', self.stop_signal))
+            keyboard.add_hotkey('delete', lambda: self._debounced_emit('delete', self.pause_signal))
+            
+            while self._running:
+                self.msleep(50)  # 缩短检查间隔，提高响应速度
+        except Exception as e:
+            print(f"热键监听错误: {e}")
+    
+    def stop(self):
+        self._running = False
+        try:
+            import keyboard
+            keyboard.unhook_all()
+        except:
+            pass
+
+
+class ScriptWorker(QThread):
+    """脚本工作线程"""
+    log_signal = pyqtSignal(str)
+    finished_signal = pyqtSignal()
+    
+    def __init__(self, script_type, config):
+        super().__init__()
+        self.script_type = script_type
+        self.config = config
+        self._stop_requested = False
+        self._redirector = None
+        self._stronger_main = None
+        self._abyss_main = None
+    
+    def request_stop(self):
+        """请求停止 - 设置脚本的停止标志"""
+        self._stop_requested = True
+        self.log("正在设置停止标志...")
+        
+        # 直接设置脚本模块的停止标志
+        if self._stronger_main:
+            self._stronger_main.stop_be_pressed = True
+            # 确保暂停事件被设置，让脚本能继续执行到检查停止标志的地方
+            if hasattr(self._stronger_main, 'pause_event'):
+                self._stronger_main.pause_event.set()
+            self.log("已设置stronger模块停止标志")
+        if self._abyss_main:
+            self._abyss_main.stop_be_pressed = True
+            if hasattr(self._abyss_main, 'pause_event'):
+                self._abyss_main.pause_event.set()
+            self.log("已设置abyss模块停止标志")
+        
+        # 同时尝试通过sys.modules设置
+        try:
+            if 'dnf.stronger.main' in sys.modules:
+                mod = sys.modules['dnf.stronger.main']
+                mod.stop_be_pressed = True
+                if hasattr(mod, 'pause_event'):
+                    mod.pause_event.set()
+            if 'dnf.abyss.main' in sys.modules:
+                mod = sys.modules['dnf.abyss.main']
+                mod.stop_be_pressed = True
+                if hasattr(mod, 'pause_event'):
+                    mod.pause_event.set()
+        except:
+            pass
+    
+    def request_pause(self):
+        """请求暂停/继续"""
+        try:
+            if self._stronger_main and hasattr(self._stronger_main, 'pause_event'):
+                if self._stronger_main.pause_event.is_set():
+                    self._stronger_main.pause_event.clear()
+                    self.log("已暂停stronger脚本")
+                    return True  # 已暂停
+                else:
+                    self._stronger_main.pause_event.set()
+                    self.log("已继续stronger脚本")
+                    return False  # 已继续
+            if self._abyss_main and hasattr(self._abyss_main, 'pause_event'):
+                if self._abyss_main.pause_event.is_set():
+                    self._abyss_main.pause_event.clear()
+                    self.log("已暂停abyss脚本")
+                    return True
+                else:
+                    self._abyss_main.pause_event.set()
+                    self.log("已继续abyss脚本")
+                    return False
+            
+            # 通过sys.modules尝试
+            for mod_name in ['dnf.stronger.main', 'dnf.abyss.main']:
+                if mod_name in sys.modules:
+                    mod = sys.modules[mod_name]
+                    if hasattr(mod, 'pause_event'):
+                        if mod.pause_event.is_set():
+                            mod.pause_event.clear()
+                            return True
+                        else:
+                            mod.pause_event.set()
+                            return False
+        except Exception as e:
+            self.log(f"暂停操作失败: {e}")
+        return None
+    
+    def log(self, msg):
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.log_signal.emit(f"[{timestamp}] {msg}")
+    
+    def run(self):
+        old_stdout, old_stderr = sys.stdout, sys.stderr
+        self._redirector = StdoutRedirector()
+        self._redirector.text_written.connect(self._on_text)
+        sys.stdout = self._redirector
+        sys.stderr = self._redirector
+        
+        try:
+            # 先设置loguru重定向
+            self._setup_loguru()
+            self.log(f"开始执行 {self.script_type} 脚本...")
+            
+            if self.script_type == "stronger":
+                self._run_stronger()
+            elif self.script_type == "abyss":
+                self._run_abyss()
+        except Exception as e:
+            self.log(f"脚本执行出错: {str(e)}")
+            import traceback
+            self.log(traceback.format_exc())
+        finally:
+            # 恢复标准输出
+            sys.stdout, sys.stderr = old_stdout, old_stderr
+            # 恢复loguru默认配置
+            try:
+                from loguru import logger
+                logger.remove()
+                logger.add(sys.stderr, level="DEBUG")
+            except:
+                pass
+            self.finished_signal.emit()
+    
+    def _on_text(self, text):
+        """处理文本输出"""
+        if text.strip():
+            self.log_signal.emit(text.strip())
+    
+    def _setup_loguru(self):
+        """设置loguru日志重定向到GUI"""
+        try:
+            from loguru import logger
+            # 移除所有现有的handler
+            logger.remove()
+            # 添加自定义sink，将日志发送到GUI
+            logger.add(
+                self._loguru_sink,
+                format="{time:HH:mm:ss} | {level} | {message}",
+                level="DEBUG",
+                colorize=False,
+                backtrace=False,
+                diagnose=False
+            )
+            self.log("loguru日志已重定向到GUI")
+        except Exception as e:
+            self.log(f"设置loguru失败: {e}")
+    
+    def _loguru_sink(self, message):
+        """loguru输出接收器"""
+        try:
+            msg = str(message).strip()
+            if msg:
+                self.log_signal.emit(msg)
+        except:
+            pass
+    
+    def _run_stronger(self):
+        self.log("启动妖气追踪/白图脚本...")
+        self.log(f"配置参数: 模式={self.config['game_mode']}, 账号={self.config['account_code']}, 起始角色={self.config['first_role']}, 结束角色={self.config['last_role']}")
+        
+        stronger_dir = os.path.join(PROJECT_ROOT, 'dnf', 'stronger')
+        original_dir = os.getcwd()
+        
+        try:
+            os.chdir(stronger_dir)
+            if stronger_dir not in sys.path:
+                sys.path.insert(0, stronger_dir)
+            if PROJECT_ROOT not in sys.path:
+                sys.path.insert(0, PROJECT_ROOT)
+            
+            for key in list(sys.modules.keys()):
+                if 'dnf.stronger' in key or key in ['map_util', 'skill_util', 'logger_config']:
+                    del sys.modules[key]
+            
+            import dnf.stronger.main as stronger_main
+            # 重置停止标志
+            stronger_main.stop_be_pressed = False
+            stronger_main.game_mode = self.config['game_mode']
+            stronger_main.account_code = self.config['account_code']
+            stronger_main.first_role_no = self.config['first_role']
+            stronger_main.last_role_no = self.config['last_role']
+            # 跳过角色设置
+            stronger_main.break_role = self.config.get('break_role', False)
+            stronger_main.break_role_no = self.config.get('break_role_no', [])
+            self.log(f"已设置脚本参数: first_role_no={stronger_main.first_role_no}, last_role_no={stronger_main.last_role_no}, break_role={stronger_main.break_role}, break_role_no={stronger_main.break_role_no}")
+            stronger_main.show = self.config['show_detection']
+            stronger_main.enable_uniform_pl = self.config.get('enable_uniform_pl', False)
+            stronger_main.uniform_default_fatigue_reserved = self.config.get('fatigue_reserved', 0)
+            # 购买设置
+            stronger_main.buy_tank_type = self.config.get('buy_tank', 0)
+            stronger_main.buy_bell_ticket = self.config.get('buy_bell', 0)
+            stronger_main.buy_shanshanming = self.config.get('buy_ssm', 2)
+            stronger_main.buy_catalyst = self.config.get('buy_catalyst', 7)
+            # 执行完成后操作
+            stronger_main.quit_game_after_finish = self.config.get('quit_game_after_finish', False)
+            stronger_main.shutdown_pc_after_finish = self.config.get('shutdown_after_finish', False)
+            
+            # 保存模块引用用于停止
+            self._stronger_main = stronger_main
+            
+            # GUI模式下不启动脚本内部的热键监听，避免重复触发
+            # listener = threading.Thread(target=stronger_main.start_keyboard_listener, daemon=True)
+            # listener.start()
+            stronger_main.main_script()
+            self.log("脚本执行完成")
+        finally:
+            os.chdir(original_dir)
+    
+    def _run_abyss(self):
+        self.log("启动深渊脚本...")
+        account_type = "自己账号" if self.config.get('account_code', 1) == 1 else "五子账号"
+        self.log(f"账号: {account_type}, 角色: {self.config['first_role']}-{self.config['last_role']}")
+        
+        abyss_dir = os.path.join(PROJECT_ROOT, 'dnf', 'abyss')
+        original_dir = os.getcwd()
+        
+        try:
+            os.chdir(abyss_dir)
+            if abyss_dir not in sys.path:
+                sys.path.insert(0, abyss_dir)
+            if PROJECT_ROOT not in sys.path:
+                sys.path.insert(0, PROJECT_ROOT)
+            
+            for key in list(sys.modules.keys()):
+                if 'dnf.abyss' in key:
+                    del sys.modules[key]
+            
+            import dnf.abyss.main as abyss_main
+            # 重置停止标志
+            abyss_main.stop_be_pressed = False
+            # 设置账号类型
+            abyss_main.account_code = self.config.get('account_code', 1)
+            abyss_main.first_role_no = self.config['first_role']
+            abyss_main.last_role_no = self.config['last_role']
+            abyss_main.show = self.config['show_detection']
+            abyss_main.enable_uniform_pl = self.config.get('enable_uniform_pl', False)
+            abyss_main.uniform_default_fatigue_reserved = self.config.get('fatigue_reserved', 17)
+            # 跳过角色设置
+            abyss_main.break_role = self.config.get('break_role', False)
+            abyss_main.break_role_no = self.config.get('break_role_no', [])
+            # 购买设置
+            abyss_main.buy_tank_type = self.config.get('buy_tank', 0)
+            abyss_main.buy_bell_ticket = self.config.get('buy_bell', 2)
+            abyss_main.buy_shanshanming = self.config.get('buy_ssm', 2)
+            abyss_main.buy_catalyst = self.config.get('buy_catalyst', 7)
+            self.log(f"已设置脚本参数: first_role_no={abyss_main.first_role_no}, last_role_no={abyss_main.last_role_no}, break_role={abyss_main.break_role}, break_role_no={abyss_main.break_role_no}")
+            # 执行完成后操作
+            abyss_main.quit_game_after_finish = self.config.get('quit_game_after_finish', False)
+            abyss_main.shutdown_pc_after_finish = self.config.get('shutdown_after_finish', False)
+            
+            # 保存模块引用用于停止
+            self._abyss_main = abyss_main
+            
+            # GUI模式下不启动脚本内部的热键监听，避免重复触发
+            # listener = threading.Thread(target=abyss_main.start_keyboard_listener, daemon=True)
+            # listener.start()
+            abyss_main.main_script()
+            self.log("脚本执行完成")
+        finally:
+            os.chdir(original_dir)
+
+
+class RoleEditDialog(QDialog):
+    """角色编辑对话框"""
+    def __init__(self, parent=None, role_data=None):
+        super().__init__(parent)
+        self.role_data = role_data or {}
+        self.setWindowTitle("编辑角色" if role_data else "添加角色")
+        self.setMinimumWidth(350)
+        self.init_ui()
+    
+    def init_ui(self):
+        layout = QFormLayout(self)
+        
+        self.name_edit = QLineEdit(self.role_data.get('name', ''))
+        layout.addRow("角色名称:", self.name_edit)
+        
+        self.height_spin = NoScrollSpinBox()
+        self.height_spin.setRange(100, 200)
+        self.height_spin.setValue(self.role_data.get('height', 150))
+        layout.addRow("角色高度:", self.height_spin)
+        
+        self.fatigue_all_spin = NoScrollSpinBox()
+        self.fatigue_all_spin.setRange(0, 200)
+        self.fatigue_all_spin.setValue(self.role_data.get('fatigue_all', 188))
+        layout.addRow("总疲劳值:", self.fatigue_all_spin)
+        
+        self.fatigue_reserved_spin = NoScrollSpinBox()
+        self.fatigue_reserved_spin.setRange(0, 200)
+        self.fatigue_reserved_spin.setValue(self.role_data.get('fatigue_reserved', 0))
+        layout.addRow("预留疲劳:", self.fatigue_reserved_spin)
+        
+        self.buff_check = QCheckBox()
+        self.buff_check.setChecked(self.role_data.get('buff_effective', False))
+        layout.addRow("需要Buff:", self.buff_check)
+        
+        self.skills_edit = QLineEdit(self.role_data.get('skills', 'q,e,r,w,s,d,f,g'))
+        layout.addRow("技能快捷键:", self.skills_edit)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+    
+    def get_data(self):
+        return {
+            'name': self.name_edit.text(),
+            'height': self.height_spin.value(),
+            'fatigue_all': self.fatigue_all_spin.value(),
+            'fatigue_reserved': self.fatigue_reserved_spin.value(),
+            'buff_effective': self.buff_check.isChecked(),
+            'skills': self.skills_edit.text()
+        }
+
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.worker = None
+        self.hotkey_listener = None
+        self.is_paused = False
+        self.role_config = {'account1': [], 'account2': []}
+        self.gui_config = {}
+        self.auto_sync_role_config()  # 自动同步角色配置（只同步新增/删除）
+        self.load_role_config()
+        self.load_gui_config()
+        self.init_ui()
+        self.load_mail_config()  # 加载邮件配置
+        self.apply_gui_config()  # 应用保存的配置
+        self.start_hotkey_listener()
+    
+    def auto_sync_role_config(self):
+        """启动时自动同步角色配置（只同步新增/删除的角色）"""
+        try:
+            from dnf.stronger.role_config_manager import sync_role_configs
+            # 同步两个账号的角色配置
+            added1, removed1, total1 = sync_role_configs(1)
+            added2, removed2, total2 = sync_role_configs(2)
+            
+            if added1 or removed1 or added2 or removed2:
+                print(f"角色配置已同步: 账号1({total1}个,+{added1}/-{removed1}), 账号2({total2}个,+{added2}/-{removed2})")
+            else:
+                print(f"角色配置无变化: 账号1({total1}个), 账号2({total2}个)")
+        except Exception as e:
+            print(f"自动同步角色配置失败: {e}")
+    
+    def init_ui(self):
+        self.setWindowTitle("DNF Return my hard-earned money")
+        # 背景图尺寸 2304x1440，比例 16:10，缩小到 1152x720
+        self.setMinimumSize(1000, 625)
+        self.resize(1152, 720)
+        
+        # 设置窗口图标
+        icon_path = os.path.join(PROJECT_ROOT, 'assets', 'img', 'img_gui', 'favicon.ico')
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+        
+        central = QWidget()
+        central.setObjectName("centralWidget")
+        self.setCentralWidget(central)
+        layout = QVBoxLayout(central)
+        layout.setContentsMargins(30, 10, 30, 10)  # 减小边距
+        layout.setSpacing(8)
+        
+        self.tabs = QTabWidget()
+        layout.addWidget(self.tabs)
+        
+        self.tabs.addTab(self._create_stronger_tab(), "妖气追踪/白图")
+        self.tabs.addTab(self._create_abyss_tab(), "深渊模式")
+        self.tabs.addTab(self._create_role_tab(), "角色列表")
+        self.tabs.addTab(self._create_settings_tab(), "设置")
+        
+        # 日志区域
+        log_group = QGroupBox("运行日志")
+        log_layout = QVBoxLayout(log_group)
+        log_layout.setContentsMargins(8, 8, 8, 8)
+        self.log_text = QTextEdit()
+        self.log_text.setReadOnly(True)
+        self.log_text.setFont(QFont("Consolas", 9))
+        self.log_text.setMinimumHeight(120)
+        log_layout.addWidget(self.log_text)
+        layout.addWidget(log_group)
+        
+        # 控制按钮
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(15)
+        
+        self.start_btn = QPushButton("▶ 启动 (F10)")
+        self.start_btn.setMinimumSize(130, 40)
+        self.start_btn.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; font-weight: bold; }")
+        self.start_btn.clicked.connect(self.start_script)
+        btn_layout.addWidget(self.start_btn)
+        
+        self.stop_btn = QPushButton("■ 停止 (End)")
+        self.stop_btn.setMinimumSize(130, 40)
+        self.stop_btn.setStyleSheet("QPushButton { background-color: #f44336; color: white; font-weight: bold; }")
+        self.stop_btn.setEnabled(False)
+        self.stop_btn.clicked.connect(self.stop_script)
+        btn_layout.addWidget(self.stop_btn)
+        
+        self.pause_btn = QPushButton("⏸ 暂停 (Del)")
+        self.pause_btn.setMinimumSize(130, 40)
+        self.pause_btn.setStyleSheet("QPushButton { background-color: #FF9800; color: white; font-weight: bold; }")
+        self.pause_btn.setEnabled(False)
+        self.pause_btn.clicked.connect(self.pause_script)
+        btn_layout.addWidget(self.pause_btn)
+        
+        btn_layout.addStretch()
+        
+        clear_btn = QPushButton("清空日志")
+        clear_btn.setMinimumHeight(40)
+        clear_btn.clicked.connect(self.clear_log)
+        btn_layout.addWidget(clear_btn)
+        
+        layout.addLayout(btn_layout)
+        
+        self.statusBar().showMessage("就绪 - F10启动 | Delete暂停 | End停止")
+        self.log("程序已启动")
+        self.log("热键: F10=启动, Delete=暂停/继续, End=停止")
+
+    def _create_stronger_tab(self):
+        """创建妖气追踪选项卡"""
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(10)
+        layout.setContentsMargins(10, 10, 10, 10)
+        
+        # 游戏模式
+        mode_group = QGroupBox("游戏模式")
+        mode_layout = QVBoxLayout(mode_group)
+        mode_layout.setSpacing(6)
+        mode_layout.setContentsMargins(8, 8, 8, 8)
+        self.mode_group = QButtonGroup()
+        modes = ["白图(跌宕群岛)", "每日1+1", "妖气追踪", "妖怪歼灭", "先1+1再白图", "先1+1再妖气追踪"]
+        row1, row2 = QHBoxLayout(), QHBoxLayout()
+        for i, mode in enumerate(modes):
+            rb = QRadioButton(mode)
+            self.mode_group.addButton(rb, i + 1)
+            (row1 if i < 3 else row2).addWidget(rb)
+            if mode == "妖气追踪":
+                rb.setChecked(True)
+        mode_layout.addLayout(row1)
+        mode_layout.addLayout(row2)
+        layout.addWidget(mode_group)
+        
+        # 角色设置
+        role_group = QGroupBox("角色设置")
+        role_layout = QVBoxLayout(role_group)
+        role_layout.setSpacing(6)
+        role_layout.setContentsMargins(8, 8, 8, 8)
+        lbl_w = 70  # 标签宽度
+        spin_w = 65  # 数字框宽度
+        combo_w = 115  # 下拉框宽度
+        
+        acc_layout = QHBoxLayout()
+        lbl_acc = QLabel("账号类型:")
+        lbl_acc.setFixedWidth(lbl_w)
+        acc_layout.addWidget(lbl_acc)
+        self.acc_group = QButtonGroup()
+        self.acc_self = QRadioButton("自己账号")
+        self.acc_self.setChecked(True)
+        self.acc_five = QRadioButton("五子账号")
+        self.acc_group.addButton(self.acc_self, 1)
+        self.acc_group.addButton(self.acc_five, 2)
+        acc_layout.addWidget(self.acc_self)
+        acc_layout.addWidget(self.acc_five)
+        acc_layout.addStretch()
+        role_layout.addLayout(acc_layout)
+        
+        range_layout = QHBoxLayout()
+        lbl_first = QLabel("起始角色:")
+        lbl_first.setFixedWidth(lbl_w)
+        range_layout.addWidget(lbl_first)
+        self.first_role = NoScrollSpinBox()
+        self.first_role.setFixedWidth(spin_w)
+        self.first_role.setRange(1, 50)
+        self.first_role.setValue(1)
+        range_layout.addWidget(self.first_role)
+        lbl_last = QLabel("结束角色:")
+        lbl_last.setFixedWidth(lbl_w)
+        range_layout.addWidget(lbl_last)
+        self.last_role = NoScrollSpinBox()
+        self.last_role.setFixedWidth(spin_w)
+        self.last_role.setRange(1, 50)
+        self.last_role.setValue(40)
+        range_layout.addWidget(self.last_role)
+        range_layout.addStretch()
+        role_layout.addLayout(range_layout)
+        
+        # 跳过角色设置
+        skip_layout = QHBoxLayout()
+        self.skip_role_enabled = QCheckBox("启用跳过角色")
+        self.skip_role_enabled.setFixedWidth(120)
+        self.skip_role_enabled.setToolTip("在白图/妖气追踪模式下跳过指定角色")
+        skip_layout.addWidget(self.skip_role_enabled)
+        lbl_skip = QLabel("跳过编号:")
+        lbl_skip.setFixedWidth(70)
+        skip_layout.addWidget(lbl_skip)
+        self.skip_role_list = QLineEdit()
+        self.skip_role_list.setFixedWidth(150)
+        self.skip_role_list.setPlaceholderText("例如: 3,5,10")
+        skip_layout.addWidget(self.skip_role_list)
+        skip_layout.addStretch()
+        role_layout.addLayout(skip_layout)
+        
+        layout.addWidget(role_group)
+        
+        # 疲劳值设置
+        fatigue_group = QGroupBox("疲劳值设置")
+        fatigue_layout = QHBoxLayout(fatigue_group)
+        fatigue_layout.setSpacing(10)
+        fatigue_layout.setContentsMargins(8, 8, 8, 8)
+        self.stronger_uniform = QCheckBox("使用统一预留疲劳值")
+        self.stronger_uniform.setFixedWidth(160)
+        fatigue_layout.addWidget(self.stronger_uniform)
+        lbl_fatigue = QLabel("预留疲劳值:")
+        lbl_fatigue.setFixedWidth(80)
+        fatigue_layout.addWidget(lbl_fatigue)
+        self.stronger_fatigue = NoScrollSpinBox()
+        self.stronger_fatigue.setFixedWidth(spin_w)
+        self.stronger_fatigue.setRange(0, 200)
+        self.stronger_fatigue.setValue(0)
+        fatigue_layout.addWidget(self.stronger_fatigue)
+        fatigue_layout.addStretch()
+        layout.addWidget(fatigue_group)
+        
+        # 购买设置
+        buy_group = QGroupBox("神秘商店购买设置")
+        buy_layout = QVBoxLayout(buy_group)
+        buy_layout.setSpacing(6)
+        buy_layout.setContentsMargins(8, 8, 8, 8)
+        buy_row1 = QHBoxLayout()
+        lbl_tank = QLabel("罐子:")
+        lbl_tank.setFixedWidth(45)
+        buy_row1.addWidget(lbl_tank)
+        self.buy_tank = NoScrollComboBox()
+        self.buy_tank.setFixedWidth(combo_w)
+        self.buy_tank.addItems(["不买", "买传说", "买史诗", "买史诗+传说"])
+        buy_row1.addWidget(self.buy_tank)
+        lbl_bell = QLabel("铃铛:")
+        lbl_bell.setFixedWidth(50)
+        buy_row1.addWidget(lbl_bell)
+        self.buy_bell = NoScrollComboBox()
+        self.buy_bell.setFixedWidth(combo_w)
+        self.buy_bell.addItems(["不买", "买粉罐子", "买传说罐子", "买粉+传说"])
+        buy_row1.addWidget(self.buy_bell)
+        buy_row1.addStretch()
+        buy_layout.addLayout(buy_row1)
+        
+        buy_row2 = QHBoxLayout()
+        lbl_ssm = QLabel("闪闪明:")
+        lbl_ssm.setFixedWidth(50)
+        buy_row2.addWidget(lbl_ssm)
+        self.buy_ssm = NoScrollComboBox()
+        self.buy_ssm.setFixedWidth(combo_w)
+        self.buy_ssm.addItems(["不买", "买粉罐子", "买传说罐子", "买粉+传说"])
+        self.buy_ssm.setCurrentIndex(2)
+        buy_row2.addWidget(self.buy_ssm)
+        lbl_catalyst = QLabel("催化剂:")
+        lbl_catalyst.setFixedWidth(50)
+        buy_row2.addWidget(lbl_catalyst)
+        self.buy_catalyst = NoScrollComboBox()
+        self.buy_catalyst.setFixedWidth(combo_w)
+        self.buy_catalyst.addItems(["不买", "传说", "史诗", "太初", "传说+史诗", "史诗+太初", "传说+太初", "全部"])
+        self.buy_catalyst.setCurrentIndex(7)
+        buy_row2.addWidget(self.buy_catalyst)
+        buy_row2.addStretch()
+        buy_layout.addLayout(buy_row2)
+        layout.addWidget(buy_group)
+        layout.addStretch()
+        scroll.setWidget(widget)
+        return scroll
+    
+    def _create_abyss_tab(self):
+        """创建深渊选项卡"""
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(10)
+        layout.setContentsMargins(10, 10, 10, 10)
+        lbl_w = 75  # 标签宽度
+        spin_w = 70  # 数字框宽度
+        combo_w = 120  # 下拉框宽度
+        
+        # 角色设置
+        role_group = QGroupBox("角色设置")
+        role_layout = QVBoxLayout(role_group)
+        role_layout.setSpacing(6)
+        role_layout.setContentsMargins(8, 8, 8, 8)
+        
+        # 账号类型
+        acc_layout = QHBoxLayout()
+        lbl_acc = QLabel("账号类型:")
+        lbl_acc.setFixedWidth(lbl_w)
+        acc_layout.addWidget(lbl_acc)
+        self.abyss_acc_group = QButtonGroup()
+        self.abyss_acc_self = QRadioButton("自己账号")
+        self.abyss_acc_self.setChecked(True)
+        self.abyss_acc_five = QRadioButton("五子账号")
+        self.abyss_acc_group.addButton(self.abyss_acc_self, 1)
+        self.abyss_acc_group.addButton(self.abyss_acc_five, 2)
+        acc_layout.addWidget(self.abyss_acc_self)
+        acc_layout.addWidget(self.abyss_acc_five)
+        acc_layout.addStretch()
+        role_layout.addLayout(acc_layout)
+        
+        # 角色范围
+        range_layout = QHBoxLayout()
+        lbl_first = QLabel("起始角色:")
+        lbl_first.setFixedWidth(lbl_w)
+        range_layout.addWidget(lbl_first)
+        self.abyss_first = NoScrollSpinBox()
+        self.abyss_first.setFixedWidth(spin_w)
+        self.abyss_first.setRange(1, 50)
+        self.abyss_first.setValue(1)
+        range_layout.addWidget(self.abyss_first)
+        lbl_last = QLabel("结束角色:")
+        lbl_last.setFixedWidth(lbl_w)
+        range_layout.addWidget(lbl_last)
+        self.abyss_last = NoScrollSpinBox()
+        self.abyss_last.setFixedWidth(spin_w)
+        self.abyss_last.setRange(1, 50)
+        self.abyss_last.setValue(16)
+        range_layout.addWidget(self.abyss_last)
+        range_layout.addStretch()
+        role_layout.addLayout(range_layout)
+        
+        # 跳过角色设置
+        skip_layout = QHBoxLayout()
+        self.abyss_skip_role_enabled = QCheckBox("启用跳过角色")
+        self.abyss_skip_role_enabled.setFixedWidth(120)
+        self.abyss_skip_role_enabled.setToolTip("在深渊模式下跳过指定角色")
+        skip_layout.addWidget(self.abyss_skip_role_enabled)
+        lbl_skip = QLabel("跳过编号:")
+        lbl_skip.setFixedWidth(70)
+        skip_layout.addWidget(lbl_skip)
+        self.abyss_skip_role_list = QLineEdit()
+        self.abyss_skip_role_list.setFixedWidth(150)
+        self.abyss_skip_role_list.setPlaceholderText("例如: 3,5,10")
+        skip_layout.addWidget(self.abyss_skip_role_list)
+        skip_layout.addStretch()
+        role_layout.addLayout(skip_layout)
+        
+        layout.addWidget(role_group)
+        
+        fatigue_group = QGroupBox("疲劳值设置")
+        fatigue_layout = QHBoxLayout(fatigue_group)
+        fatigue_layout.setSpacing(10)
+        fatigue_layout.setContentsMargins(8, 8, 8, 8)
+        self.abyss_uniform = QCheckBox("使用统一预留疲劳值")
+        self.abyss_uniform.setFixedWidth(160)
+        fatigue_layout.addWidget(self.abyss_uniform)
+        lbl_fatigue = QLabel("预留疲劳值:")
+        lbl_fatigue.setFixedWidth(80)
+        fatigue_layout.addWidget(lbl_fatigue)
+        self.abyss_fatigue = NoScrollSpinBox()
+        self.abyss_fatigue.setFixedWidth(spin_w)
+        self.abyss_fatigue.setRange(0, 200)
+        self.abyss_fatigue.setValue(17)
+        fatigue_layout.addWidget(self.abyss_fatigue)
+        fatigue_layout.addStretch()
+        layout.addWidget(fatigue_group)
+        
+        buy_group = QGroupBox("神秘商店购买设置")
+        buy_layout = QVBoxLayout(buy_group)
+        buy_layout.setSpacing(6)
+        buy_layout.setContentsMargins(8, 8, 8, 8)
+        buy_row1 = QHBoxLayout()
+        lbl_tank = QLabel("罐子:")
+        lbl_tank.setFixedWidth(45)
+        buy_row1.addWidget(lbl_tank)
+        self.abyss_tank = NoScrollComboBox()
+        self.abyss_tank.setFixedWidth(combo_w)
+        self.abyss_tank.addItems(["不买", "买传说", "买史诗", "买史诗+传说"])
+        buy_row1.addWidget(self.abyss_tank)
+        lbl_bell = QLabel("铃铛:")
+        lbl_bell.setFixedWidth(50)
+        buy_row1.addWidget(lbl_bell)
+        self.abyss_bell = NoScrollComboBox()
+        self.abyss_bell.setFixedWidth(combo_w)
+        self.abyss_bell.addItems(["不买", "买粉罐子", "买传说罐子", "买粉+传说"])
+        self.abyss_bell.setCurrentIndex(2)
+        buy_row1.addWidget(self.abyss_bell)
+        buy_row1.addStretch()
+        buy_layout.addLayout(buy_row1)
+        
+        buy_row2 = QHBoxLayout()
+        lbl_ssm = QLabel("闪闪明:")
+        lbl_ssm.setFixedWidth(50)
+        buy_row2.addWidget(lbl_ssm)
+        self.abyss_ssm = NoScrollComboBox()
+        self.abyss_ssm.setFixedWidth(combo_w)
+        self.abyss_ssm.addItems(["不买", "买粉罐子", "买传说罐子", "买粉+传说"])
+        self.abyss_ssm.setCurrentIndex(2)
+        buy_row2.addWidget(self.abyss_ssm)
+        lbl_catalyst = QLabel("催化剂:")
+        lbl_catalyst.setFixedWidth(50)
+        buy_row2.addWidget(lbl_catalyst)
+        self.abyss_catalyst = NoScrollComboBox()
+        self.abyss_catalyst.setFixedWidth(combo_w)
+        self.abyss_catalyst.addItems(["不买", "传说", "史诗", "太初", "传说+史诗", "史诗+太初", "传说+太初", "全部"])
+        self.abyss_catalyst.setCurrentIndex(7)
+        buy_row2.addWidget(self.abyss_catalyst)
+        buy_row2.addStretch()
+        buy_layout.addLayout(buy_row2)
+        layout.addWidget(buy_group)
+        layout.addStretch()
+        scroll.setWidget(widget)
+        return scroll
+    
+    def _create_role_tab(self):
+        """创建角色列表选项卡"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(15)
+        layout.setContentsMargins(15, 15, 15, 15)
+        
+        # 账号选择和操作按钮
+        top_layout = QHBoxLayout()
+        top_layout.addWidget(QLabel("选择账号:"))
+        self.role_acc_group = QButtonGroup()
+        self.role_acc_self = QRadioButton("自己账号")
+        self.role_acc_self.setChecked(True)
+        self.role_acc_self.toggled.connect(self.refresh_role_table)
+        self.role_acc_five = QRadioButton("五子账号")
+        self.role_acc_five.toggled.connect(self.refresh_role_table)
+        self.role_acc_group.addButton(self.role_acc_self, 1)
+        self.role_acc_group.addButton(self.role_acc_five, 2)
+        top_layout.addWidget(self.role_acc_self)
+        top_layout.addWidget(self.role_acc_five)
+        top_layout.addStretch()
+        
+        add_btn = QPushButton("添加角色")
+        add_btn.clicked.connect(self.add_role)
+        top_layout.addWidget(add_btn)
+        
+        edit_btn = QPushButton("编辑角色")
+        edit_btn.clicked.connect(self.edit_role)
+        top_layout.addWidget(edit_btn)
+        
+        del_btn = QPushButton("删除角色")
+        del_btn.clicked.connect(self.delete_role)
+        top_layout.addWidget(del_btn)
+        
+        sync_btn = QPushButton("从代码强制同步")
+        sync_btn.setToolTip("将role_list.py中的配置完整覆盖到JSON（会丢失在JSON中的修改）")
+        sync_btn.clicked.connect(self.force_sync_from_code)
+        top_layout.addWidget(sync_btn)
+        
+        layout.addLayout(top_layout)
+        
+        # 角色表格
+        self.role_table = QTableWidget()
+        self.role_table.setColumnCount(7)
+        self.role_table.setHorizontalHeaderLabels(["编号", "角色名称", "高度", "总疲劳", "预留疲劳", "需要Buff", "技能"])
+        self.role_table.verticalHeader().setVisible(False)  # 隐藏左侧行号
+        # 设置列宽比例：技能占30%，其他6列平分剩余70%
+        header = self.role_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Stretch)  # 编号
+        header.setSectionResizeMode(1, QHeaderView.Stretch)  # 角色名称
+        header.setSectionResizeMode(2, QHeaderView.Stretch)  # 高度
+        header.setSectionResizeMode(3, QHeaderView.Stretch)  # 总疲劳
+        header.setSectionResizeMode(4, QHeaderView.Stretch)  # 预留疲劳
+        header.setSectionResizeMode(5, QHeaderView.Stretch)  # 需要Buff
+        header.setSectionResizeMode(6, QHeaderView.Stretch)  # 技能
+        header.setStretchLastSection(False)
+        # 设置各列拉伸因子
+        header.resizeSection(0, 60)   # 编号 ~10%
+        header.resizeSection(1, 90)   # 角色名称 ~15%
+        header.resizeSection(2, 55)   # 高度 ~9%
+        header.resizeSection(3, 65)   # 总疲劳 ~11%
+        header.resizeSection(4, 75)   # 预留疲劳 ~12%
+        header.resizeSection(5, 75)   # 需要Buff ~12%
+        header.resizeSection(6, 180)  # 技能 ~30%
+        self.role_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.role_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.role_table.doubleClicked.connect(self.edit_role)
+        layout.addWidget(self.role_table)
+        
+        layout.addWidget(QLabel("提示: 启动时自动同步新增/删除的角色；点击'从代码强制同步'可完整覆盖JSON配置"))
+        
+        self.refresh_role_table()
+        return widget
+    
+    def _create_settings_tab(self):
+        """创建设置选项卡"""
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(12)
+        layout.setContentsMargins(10, 10, 10, 10)
+        
+        # 邮件配置
+        mail_group = QGroupBox("邮件提醒配置")
+        mail_layout = QVBoxLayout(mail_group)
+        mail_layout.setSpacing(6)
+        mail_layout.setContentsMargins(8, 8, 8, 8)
+        label_width = 85  # 统一标签宽度
+        
+        # 发件人邮箱
+        row1 = QHBoxLayout()
+        lbl1 = QLabel("发件人邮箱:")
+        lbl1.setFixedWidth(label_width)
+        row1.addWidget(lbl1)
+        self.mail_sender = QLineEdit()
+        self.mail_sender.setFixedSize(300, 28)
+        self.mail_sender.setPlaceholderText("发件人邮箱地址")
+        row1.addWidget(self.mail_sender)
+        row1.addStretch()
+        mail_layout.addLayout(row1)
+        
+        # 授权码
+        row2 = QHBoxLayout()
+        lbl2 = QLabel("授权码:")
+        lbl2.setFixedWidth(label_width)
+        row2.addWidget(lbl2)
+        self.mail_password = QLineEdit()
+        self.mail_password.setFixedSize(300, 28)
+        self.mail_password.setPlaceholderText("邮箱授权码（非登录密码）")
+        self.mail_password.setEchoMode(QLineEdit.Password)
+        row2.addWidget(self.mail_password)
+        row2.addStretch()
+        mail_layout.addLayout(row2)
+        
+        # 收件人邮箱
+        row3 = QHBoxLayout()
+        lbl3 = QLabel("收件人邮箱:")
+        lbl3.setFixedWidth(label_width)
+        row3.addWidget(lbl3)
+        self.mail_receiver = QLineEdit()
+        self.mail_receiver.setFixedSize(300, 28)
+        self.mail_receiver.setPlaceholderText("收件人邮箱地址")
+        row3.addWidget(self.mail_receiver)
+        row3.addStretch()
+        mail_layout.addLayout(row3)
+        
+        # SMTP服务器
+        row4 = QHBoxLayout()
+        lbl4 = QLabel("SMTP服务器:")
+        lbl4.setFixedWidth(label_width)
+        row4.addWidget(lbl4)
+        self.smtp_server = QLineEdit()
+        self.smtp_server.setFixedSize(200, 28)
+        self.smtp_server.setText("smtp.qq.com")
+        self.smtp_server.setPlaceholderText("SMTP服务器")
+        row4.addWidget(self.smtp_server)
+        lbl_port = QLabel("端口:")
+        lbl_port.setFixedWidth(40)
+        row4.addWidget(lbl_port)
+        self.smtp_port = NoScrollSpinBox()
+        self.smtp_port.setFixedSize(80, 28)
+        self.smtp_port.setRange(1, 65535)
+        self.smtp_port.setValue(465)
+        row4.addWidget(self.smtp_port)
+        row4.addStretch()
+        mail_layout.addLayout(row4)
+        
+        # 邮件按钮 - 与输入框对齐
+        row5 = QHBoxLayout()
+        spacer = QLabel("")
+        spacer.setFixedWidth(label_width)
+        row5.addWidget(spacer)
+        test_mail_btn = QPushButton("测试邮件")
+        test_mail_btn.setFixedSize(100, 30)
+        test_mail_btn.clicked.connect(self.test_mail)
+        row5.addWidget(test_mail_btn)
+        save_mail_btn = QPushButton("保存邮件配置")
+        save_mail_btn.setFixedSize(120, 30)
+        save_mail_btn.clicked.connect(self.save_mail_config)
+        row5.addWidget(save_mail_btn)
+        row5.addStretch()
+        mail_layout.addLayout(row5)
+        
+        layout.addWidget(mail_group)
+        
+        # 执行完成后操作
+        finish_group = QGroupBox("执行完成后操作")
+        finish_layout = QVBoxLayout(finish_group)
+        finish_layout.setSpacing(4)
+        finish_layout.setContentsMargins(8, 8, 8, 8)
+        self.quit_game_after_finish = QCheckBox("脚本执行完成后退出游戏")
+        finish_layout.addWidget(self.quit_game_after_finish)
+        self.shutdown_after_finish = QCheckBox("脚本执行完成后关机（需先勾选退出游戏）")
+        self.shutdown_after_finish.setToolTip("勾选后，脚本执行完成并退出游戏后，电脑将在60秒后自动关机")
+        finish_layout.addWidget(self.shutdown_after_finish)
+        layout.addWidget(finish_group)
+        
+        # 显示设置
+        display_group = QGroupBox("显示设置")
+        display_layout = QVBoxLayout(display_group)
+        display_layout.setSpacing(4)
+        display_layout.setContentsMargins(8, 8, 8, 8)
+        self.show_detection = QCheckBox("显示检测结果窗口（调试用）")
+        display_layout.addWidget(self.show_detection)
+        self.enable_pic_log = QCheckBox("启用截图日志")
+        self.enable_pic_log.setChecked(True)
+        display_layout.addWidget(self.enable_pic_log)
+        layout.addWidget(display_group)
+        
+        # 快捷键说明
+        key_group = QGroupBox("快捷键说明")
+        key_layout = QVBoxLayout(key_group)
+        key_layout.setSpacing(4)
+        key_layout.setContentsMargins(8, 8, 8, 8)
+        key_layout.addWidget(QLabel("F10 键 - 启动脚本"))
+        key_layout.addWidget(QLabel("Delete 键 - 暂停/继续脚本"))
+        key_layout.addWidget(QLabel("End 键 - 停止脚本"))
+        layout.addWidget(key_group)
+        
+        layout.addStretch()
+        scroll.setWidget(widget)
+        return scroll
+    
+    def test_mail(self):
+        """测试邮件发送"""
+        sender = self.mail_sender.text().strip()
+        password = self.mail_password.text().strip()
+        receiver = self.mail_receiver.text().strip()
+        smtp_server = self.smtp_server.text().strip()
+        smtp_port = self.smtp_port.value()
+        
+        if not all([sender, password, receiver, smtp_server]):
+            QMessageBox.warning(self, "警告", "请填写完整的邮件配置")
+            return
+        
+        try:
+            from utils.mail_sender import EmailSender
+            test_config = {
+                'sender': sender,
+                'password': password,
+                'receiver': receiver,
+                'smtp_server': smtp_server,
+                'smtp_port': smtp_port
+            }
+            mail_sender = EmailSender(test_config)
+            mail_sender.send_email("DNF脚本测试邮件", "这是一封测试邮件，如果您收到说明邮件配置正确。", receiver)
+            QMessageBox.information(self, "成功", "测试邮件已发送，请检查收件箱")
+            self.log("测试邮件已发送")
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"发送失败: {str(e)}")
+            self.log(f"测试邮件发送失败: {e}")
+    
+    def save_mail_config(self):
+        """保存邮件配置到.env文件"""
+        sender = self.mail_sender.text().strip()
+        password = self.mail_password.text().strip()
+        receiver = self.mail_receiver.text().strip()
+        smtp_server = self.smtp_server.text().strip()
+        smtp_port = self.smtp_port.value()
+        
+        env_path = os.path.join(PROJECT_ROOT, '.env')
+        env_content = f"""# 邮件配置 - 由GUI自动生成
+# 发件人邮箱
+DNF_MAIL_SENDER={sender}
+# 邮箱授权码（不是登录密码）
+DNF_MAIL_PASSWORD={password}
+# SMTP服务器（默认QQ邮箱）
+DNF_SMTP_SERVER={smtp_server}
+# SMTP端口
+DNF_SMTP_PORT={smtp_port}
+# 收件人邮箱
+DNF_MAIL_RECEIVER={receiver}
+"""
+        try:
+            with open(env_path, 'w', encoding='utf-8') as f:
+                f.write(env_content)
+            QMessageBox.information(self, "成功", "邮件配置已保存到 .env 文件")
+            self.log("邮件配置已保存")
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"保存失败: {str(e)}")
+    
+    def load_mail_config(self):
+        """从.env文件加载邮件配置"""
+        env_path = os.path.join(PROJECT_ROOT, '.env')
+        if os.path.exists(env_path):
+            try:
+                with open(env_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if '=' in line and not line.startswith('#'):
+                            key, value = line.split('=', 1)
+                            if key == 'DNF_MAIL_SENDER':
+                                self.mail_sender.setText(value)
+                            elif key == 'DNF_MAIL_PASSWORD':
+                                self.mail_password.setText(value)
+                            elif key == 'DNF_MAIL_RECEIVER':
+                                self.mail_receiver.setText(value)
+                            elif key == 'DNF_SMTP_SERVER':
+                                self.smtp_server.setText(value)
+                            elif key == 'DNF_SMTP_PORT':
+                                try:
+                                    self.smtp_port.setValue(int(value))
+                                except:
+                                    pass
+            except:
+                pass
+    
+    def start_hotkey_listener(self):
+        """启动热键监听"""
+        self.hotkey_listener = HotkeyListener()
+        self.hotkey_listener.start_signal.connect(self.start_script)
+        self.hotkey_listener.stop_signal.connect(self.stop_script)
+        self.hotkey_listener.pause_signal.connect(self.pause_script)
+        self.hotkey_listener.start()
+    
+    def log(self, message):
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        msg_lower = message.lower()
+        
+        # 根据日志类型设置颜色
+        if 'error' in msg_lower or '错误' in message or '失败' in message:
+            color = '#e53935'  # 红色 - 错误
+        elif 'warning' in msg_lower or '警告' in message or 'warn' in msg_lower:
+            color = '#fb8c00'  # 橙色 - 警告
+        elif '完成' in message or '成功' in message or '已启动' in message or '已加载' in message:
+            color = '#43a047'  # 绿色 - 成功
+        elif '停止' in message or '暂停' in message:
+            color = '#1e88e5'  # 蓝色 - 状态变化
+        else:
+            color = '#333333'  # 默认深灰色
+        
+        self.log_text.append(f'<span style="color:{color}">[{timestamp}] {message}</span>')
+        self.log_text.moveCursor(QTextCursor.End)
+    
+    def clear_log(self):
+        self.log_text.clear()
+    
+    # 角色配置管理
+    def load_role_config(self):
+        """加载角色配置"""
+        if os.path.exists(ROLE_CONFIG_FILE):
+            try:
+                with open(ROLE_CONFIG_FILE, 'r', encoding='utf-8') as f:
+                    self.role_config = json.load(f)
+            except:
+                pass
+    
+    def save_role_config(self):
+        """保存角色配置"""
+        with open(ROLE_CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(self.role_config, f, ensure_ascii=False, indent=2)
+    
+    def load_gui_config(self):
+        """加载GUI配置"""
+        if os.path.exists(GUI_CONFIG_FILE):
+            try:
+                with open(GUI_CONFIG_FILE, 'r', encoding='utf-8') as f:
+                    self.gui_config = json.load(f)
+            except:
+                pass
+    
+    def save_gui_config(self):
+        """保存GUI配置"""
+        config = {
+            # 妖气追踪/白图配置
+            'game_mode': self.mode_group.checkedId(),
+            'account_code': self.acc_group.checkedId(),
+            'first_role': self.first_role.value(),
+            'last_role': self.last_role.value(),
+            'skip_role_enabled': self.skip_role_enabled.isChecked(),
+            'skip_role_list': self.skip_role_list.text(),
+            'stronger_uniform': self.stronger_uniform.isChecked(),
+            'stronger_fatigue': self.stronger_fatigue.value(),
+            'buy_tank': self.buy_tank.currentIndex(),
+            'buy_bell': self.buy_bell.currentIndex(),
+            'buy_ssm': self.buy_ssm.currentIndex(),
+            'buy_catalyst': self.buy_catalyst.currentIndex(),
+            # 深渊配置
+            'abyss_account_code': self.abyss_acc_group.checkedId(),
+            'abyss_first': self.abyss_first.value(),
+            'abyss_last': self.abyss_last.value(),
+            'abyss_skip_role_enabled': self.abyss_skip_role_enabled.isChecked(),
+            'abyss_skip_role_list': self.abyss_skip_role_list.text(),
+            'abyss_uniform': self.abyss_uniform.isChecked(),
+            'abyss_fatigue': self.abyss_fatigue.value(),
+            'abyss_tank': self.abyss_tank.currentIndex(),
+            'abyss_bell': self.abyss_bell.currentIndex(),
+            'abyss_ssm': self.abyss_ssm.currentIndex(),
+            'abyss_catalyst': self.abyss_catalyst.currentIndex(),
+            # 执行完成后操作
+            'quit_game_after_finish': self.quit_game_after_finish.isChecked(),
+            'shutdown_after_finish': self.shutdown_after_finish.isChecked(),
+            # 设置
+            'show_detection': self.show_detection.isChecked(),
+            'enable_pic_log': self.enable_pic_log.isChecked(),
+            # 当前选项卡
+            'current_tab': self.tabs.currentIndex()
+        }
+        with open(GUI_CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+    
+    def apply_gui_config(self):
+        """应用保存的GUI配置"""
+        if not self.gui_config:
+            self.log("没有找到保存的配置")
+            return
+        try:
+            c = self.gui_config
+            self.log(f"正在加载配置: 起始角色={c.get('first_role')}, 结束角色={c.get('last_role')}")
+            
+            # 妖气追踪/白图配置
+            if 'game_mode' in c:
+                btn = self.mode_group.button(c['game_mode'])
+                if btn:
+                    btn.setChecked(True)
+            if 'account_code' in c:
+                btn = self.acc_group.button(c['account_code'])
+                if btn:
+                    btn.setChecked(True)
+            if 'first_role' in c:
+                self.first_role.setValue(c['first_role'])
+            if 'last_role' in c:
+                self.last_role.setValue(c['last_role'])
+            if 'skip_role_enabled' in c:
+                self.skip_role_enabled.setChecked(c['skip_role_enabled'])
+            if 'skip_role_list' in c:
+                self.skip_role_list.setText(c['skip_role_list'])
+            if 'stronger_uniform' in c:
+                self.stronger_uniform.setChecked(c['stronger_uniform'])
+            if 'stronger_fatigue' in c:
+                self.stronger_fatigue.setValue(c['stronger_fatigue'])
+            if 'buy_tank' in c:
+                self.buy_tank.setCurrentIndex(c['buy_tank'])
+            if 'buy_bell' in c:
+                self.buy_bell.setCurrentIndex(c['buy_bell'])
+            if 'buy_ssm' in c:
+                self.buy_ssm.setCurrentIndex(c['buy_ssm'])
+            if 'buy_catalyst' in c:
+                self.buy_catalyst.setCurrentIndex(c['buy_catalyst'])
+            # 深渊配置
+            if 'abyss_account_code' in c:
+                btn = self.abyss_acc_group.button(c['abyss_account_code'])
+                if btn:
+                    btn.setChecked(True)
+            if 'abyss_first' in c:
+                self.abyss_first.setValue(c['abyss_first'])
+            if 'abyss_last' in c:
+                self.abyss_last.setValue(c['abyss_last'])
+            if 'abyss_skip_role_enabled' in c:
+                self.abyss_skip_role_enabled.setChecked(c['abyss_skip_role_enabled'])
+            if 'abyss_skip_role_list' in c:
+                self.abyss_skip_role_list.setText(c['abyss_skip_role_list'])
+            if 'abyss_uniform' in c:
+                self.abyss_uniform.setChecked(c['abyss_uniform'])
+            if 'abyss_fatigue' in c:
+                self.abyss_fatigue.setValue(c['abyss_fatigue'])
+            if 'abyss_tank' in c:
+                self.abyss_tank.setCurrentIndex(c['abyss_tank'])
+            if 'abyss_bell' in c:
+                self.abyss_bell.setCurrentIndex(c['abyss_bell'])
+            if 'abyss_ssm' in c:
+                self.abyss_ssm.setCurrentIndex(c['abyss_ssm'])
+            if 'abyss_catalyst' in c:
+                self.abyss_catalyst.setCurrentIndex(c['abyss_catalyst'])
+
+            # 执行完成后操作
+            if 'quit_game_after_finish' in c:
+                self.quit_game_after_finish.setChecked(c['quit_game_after_finish'])
+            if 'shutdown_after_finish' in c:
+                self.shutdown_after_finish.setChecked(c['shutdown_after_finish'])
+            # 设置
+            if 'show_detection' in c:
+                self.show_detection.setChecked(c['show_detection'])
+            if 'enable_pic_log' in c:
+                self.enable_pic_log.setChecked(c['enable_pic_log'])
+            # 当前选项卡
+            if 'current_tab' in c:
+                self.tabs.setCurrentIndex(c['current_tab'])
+            self.log("已加载上次配置")
+        except Exception as e:
+            self.log(f"加载配置失败: {e}")
+    
+    def get_current_account_key(self):
+        return 'account1' if self.role_acc_group.checkedId() == 1 else 'account2'
+    
+    def refresh_role_table(self):
+        """刷新角色表格"""
+        key = self.get_current_account_key()
+        roles = self.role_config.get(key, [])
+        self.role_table.setRowCount(len(roles))
+        for i, role in enumerate(roles):
+            self.role_table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
+            self.role_table.setItem(i, 1, QTableWidgetItem(role.get('name', '')))
+            self.role_table.setItem(i, 2, QTableWidgetItem(str(role.get('height', 150))))
+            self.role_table.setItem(i, 3, QTableWidgetItem(str(role.get('fatigue_all', 188))))
+            self.role_table.setItem(i, 4, QTableWidgetItem(str(role.get('fatigue_reserved', 0))))
+            self.role_table.setItem(i, 5, QTableWidgetItem("是" if role.get('buff_effective') else "否"))
+            # 提取技能快捷键
+            skills = role.get('custom_priority_skills', [])
+            skill_keys = []
+            for s in skills:
+                if s.get('type') == 'str':
+                    skill_keys.append(s.get('value', ''))
+                elif s.get('type') == 'key':
+                    key_val = s.get('value', '').replace('Key.', '')
+                    skill_keys.append(key_val)
+                elif s.get('type') == 'skill':
+                    skill_keys.append(s.get('hot_key', '') or s.get('name', ''))
+            self.role_table.setItem(i, 6, QTableWidgetItem(','.join(skill_keys)))
+    
+    def add_role(self):
+        """添加角色"""
+        dialog = RoleEditDialog(self)
+        if dialog.exec_() == QDialog.Accepted:
+            key = self.get_current_account_key()
+            self.role_config[key].append(dialog.get_data())
+            self.save_role_config()
+            self.refresh_role_table()
+            self.log(f"已添加角色: {dialog.get_data()['name']}")
+    
+    def edit_role(self):
+        """编辑角色"""
+        row = self.role_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "警告", "请先选择要编辑的角色")
+            return
+        key = self.get_current_account_key()
+        role_data = self.role_config[key][row]
+        dialog = RoleEditDialog(self, role_data)
+        if dialog.exec_() == QDialog.Accepted:
+            self.role_config[key][row] = dialog.get_data()
+            self.save_role_config()
+            self.refresh_role_table()
+            self.log(f"已更新角色: {dialog.get_data()['name']}")
+    
+    def delete_role(self):
+        """删除角色"""
+        row = self.role_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "警告", "请先选择要删除的角色")
+            return
+        key = self.get_current_account_key()
+        name = self.role_config[key][row].get('name', '')
+        if QMessageBox.question(self, "确认", f"确定删除角色 '{name}'?") == QMessageBox.Yes:
+            del self.role_config[key][row]
+            self.save_role_config()
+            self.refresh_role_table()
+            self.log(f"已删除角色: {name}")
+    
+    def force_sync_from_code(self):
+        """从role_list.py强制同步角色配置到JSON（完整覆盖）"""
+        reply = QMessageBox.warning(
+            self, "确认强制同步", 
+            "此操作将用role_list.py中的配置完整覆盖JSON文件！\n\n"
+            "您在JSON中对角色的修改（如疲劳值、技能等）将会丢失。\n\n"
+            "是否继续？",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
+        try:
+            from dnf.stronger.role_config_manager import export_from_role_list
+            
+            # 导出全部账号
+            export_from_role_list(1)
+            export_from_role_list(2)
+            
+            # 重新加载配置
+            self.load_role_config()
+            self.refresh_role_table()
+            
+            count1 = len(self.role_config.get('account1', []))
+            count2 = len(self.role_config.get('account2', []))
+            self.log(f"已强制同步角色配置: 账号1={count1}个, 账号2={count2}个")
+            QMessageBox.information(self, "成功", f"已强制同步角色配置\n账号1: {count1}个角色\n账号2: {count2}个角色")
+        except Exception as e:
+            import traceback
+            self.log(f"强制同步失败: {str(e)}")
+            traceback.print_exc()
+            QMessageBox.critical(self, "错误", f"强制同步失败: {str(e)}")
+
+    def start_script(self):
+        """启动脚本"""
+        if self.worker and self.worker.isRunning():
+            self.log("脚本已在运行中")
+            return
+        
+        current_tab = self.tabs.currentIndex()
+        
+        if current_tab == 0:  # 妖气追踪
+            # 解析跳过角色列表
+            skip_list = []
+            if self.skip_role_enabled.isChecked() and self.skip_role_list.text().strip():
+                try:
+                    skip_list = [int(x.strip()) for x in self.skip_role_list.text().split(',') if x.strip()]
+                except:
+                    self.log("跳过角色列表格式错误，已忽略")
+            
+            config = {
+                'game_mode': self.mode_group.checkedId(),
+                'account_code': self.acc_group.checkedId(),
+                'first_role': self.first_role.value(),
+                'last_role': self.last_role.value(),
+                'show_detection': self.show_detection.isChecked(),
+                'enable_uniform_pl': self.stronger_uniform.isChecked(),
+                'fatigue_reserved': self.stronger_fatigue.value(),
+                'break_role': self.skip_role_enabled.isChecked(),
+                'break_role_no': skip_list,
+                'buy_tank': self.buy_tank.currentIndex(),
+                'buy_bell': self.buy_bell.currentIndex(),
+                'buy_ssm': self.buy_ssm.currentIndex(),
+                'buy_catalyst': self.buy_catalyst.currentIndex(),
+                'quit_game_after_finish': self.quit_game_after_finish.isChecked(),
+                'shutdown_after_finish': self.shutdown_after_finish.isChecked()
+            }
+            skip_info = f", 跳过角色={skip_list}" if skip_list else ""
+            self.log(f"启动配置: 模式={config['game_mode']}, 角色={config['first_role']}-{config['last_role']}{skip_info}")
+            self.worker = ScriptWorker("stronger", config)
+        elif current_tab == 1:  # 深渊
+            # 解析跳过角色列表
+            abyss_skip_list = []
+            if self.abyss_skip_role_enabled.isChecked() and self.abyss_skip_role_list.text().strip():
+                try:
+                    abyss_skip_list = [int(x.strip()) for x in self.abyss_skip_role_list.text().split(',') if x.strip()]
+                except:
+                    self.log("跳过角色列表格式错误，已忽略")
+            
+            config = {
+                'account_code': self.abyss_acc_group.checkedId(),
+                'first_role': self.abyss_first.value(),
+                'last_role': self.abyss_last.value(),
+                'show_detection': self.show_detection.isChecked(),
+                'enable_uniform_pl': self.abyss_uniform.isChecked(),
+                'fatigue_reserved': self.abyss_fatigue.value(),
+                'break_role': self.abyss_skip_role_enabled.isChecked(),
+                'break_role_no': abyss_skip_list,
+                'buy_tank': self.abyss_tank.currentIndex(),
+                'buy_bell': self.abyss_bell.currentIndex(),
+                'buy_ssm': self.abyss_ssm.currentIndex(),
+                'buy_catalyst': self.abyss_catalyst.currentIndex(),
+                'quit_game_after_finish': self.quit_game_after_finish.isChecked(),
+                'shutdown_after_finish': self.shutdown_after_finish.isChecked()
+            }
+            skip_info = f", 跳过角色={abyss_skip_list}" if abyss_skip_list else ""
+            self.log(f"启动配置: 账号={config['account_code']}, 角色={config['first_role']}-{config['last_role']}{skip_info}")
+            self.worker = ScriptWorker("abyss", config)
+        elif current_tab == 2:  # 角色列表
+            self.refresh_role_table()
+            return
+        else:
+            self.log("请切换到妖气追踪或深渊模式后启动")
+            return
+        
+        self.worker.log_signal.connect(self.on_log)
+        self.worker.finished_signal.connect(self.on_finished)
+        self.worker.start()
+        
+        # 播放启动提示音
+        try:
+            import config as config_
+            threading.Thread(target=lambda: winsound.PlaySound(config_.sound1, winsound.SND_FILENAME), daemon=True).start()
+        except Exception as e:
+            self.log(f"播放提示音失败: {e}")
+        
+        self.start_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+        self.pause_btn.setEnabled(True)
+        self.is_paused = False
+        self.statusBar().showMessage("运行中...")
+        self.log("脚本已启动")
+    
+    def stop_script(self):
+        """停止脚本"""
+        if not self.worker or not self.worker.isRunning():
+            return
+        
+        # 防止重复停止
+        if hasattr(self, '_stopping') and self._stopping:
+            return
+        self._stopping = True
+        
+        self.log("正在停止脚本...")
+        
+        # 播放停止提示音
+        try:
+            import config as config_
+            threading.Thread(target=lambda: winsound.PlaySound(config_.sound2, winsound.SND_FILENAME), daemon=True).start()
+        except:
+            pass
+        
+        # 设置脚本模块的停止标志
+        self.worker.request_stop()
+        
+        # 等待一段时间后检查是否停止，如果没停止则强制终止
+        def force_stop():
+            if self.worker and self.worker.isRunning():
+                self.log("脚本未响应停止信号，正在强制终止...")
+                self.worker.terminate()
+                self.worker.wait(1000)
+                self.on_finished()
+        
+        QTimer.singleShot(3000, force_stop)
+    
+    def pause_script(self):
+        """暂停/继续脚本"""
+        if not self.worker or not self.worker.isRunning():
+            return
+        
+        # 播放暂停提示音
+        try:
+            import config as config_
+            threading.Thread(target=lambda: winsound.PlaySound(config_.sound3, winsound.SND_FILENAME), daemon=True).start()
+        except:
+            pass
+        
+        # 直接操作脚本的pause_event
+        result = self.worker.request_pause()
+        if result is True:
+            self.is_paused = True
+            self.pause_btn.setText("▶ 继续 (Del)")
+            self.log("脚本已暂停")
+            self.statusBar().showMessage("已暂停")
+        elif result is False:
+            self.is_paused = False
+            self.pause_btn.setText("⏸ 暂停 (Del)")
+            self.log("脚本继续运行")
+            self.statusBar().showMessage("运行中...")
+        else:
+            self.log("暂停操作失败")
+    
+    def on_log(self, message):
+        """接收日志"""
+        msg_lower = message.lower()
+        
+        # 根据日志类型设置颜色
+        if 'error' in msg_lower or '错误' in message or '失败' in message:
+            color = '#e53935'  # 红色 - 错误
+        elif 'warning' in msg_lower or '警告' in message or 'warn' in msg_lower:
+            color = '#fb8c00'  # 橙色 - 警告
+        elif '完成' in message or '成功' in message:
+            color = '#43a047'  # 绿色 - 成功
+        elif 'info' in msg_lower or 'debug' in msg_lower:
+            color = '#333333'  # 默认深灰色
+        else:
+            color = '#333333'  # 默认深灰色
+        
+        self.log_text.append(f'<span style="color:{color}">{message}</span>')
+        self.log_text.moveCursor(QTextCursor.End)
+    
+    def on_finished(self):
+        """脚本结束"""
+        self.start_btn.setEnabled(True)
+        self.stop_btn.setEnabled(False)
+        self.pause_btn.setEnabled(False)
+        self.pause_btn.setText("⏸ 暂停 (Del)")
+        self.is_paused = False
+        self._stopping = False  # 重置停止标志
+        self.statusBar().showMessage("就绪 - F10启动 | Delete暂停 | End停止")
+        self.log("脚本已停止")
+    
+    def closeEvent(self, event):
+        """关闭窗口"""
+        # 保存配置
+        try:
+            self.save_gui_config()
+            self.log("配置已保存")
+        except Exception as e:
+            self.log(f"保存配置失败: {e}")
+        
+        if self.hotkey_listener:
+            self.hotkey_listener.stop()
+            self.hotkey_listener.wait(1000)
+        
+        if self.worker and self.worker.isRunning():
+            reply = QMessageBox.question(self, "确认", "脚本正在运行，确定要退出吗？",
+                                        QMessageBox.Yes | QMessageBox.No)
+            if reply == QMessageBox.No:
+                event.ignore()
+                return
+            self.stop_script()
+        event.accept()
+
+
+def main():
+    app = QApplication(sys.argv)
+    app.setStyle('Fusion')
+    
+    # 设置窗口图标（任务栏图标）
+    icon_path = os.path.join(PROJECT_ROOT, 'assets', 'img', 'img_gui', 'favicon.ico')
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+    
+    # 背景图路径
+    bg_path = os.path.join(PROJECT_ROOT, 'assets', 'img', 'img_gui', 'shenjie.jpg')
+    bg_url = bg_path.replace('\\', '/')
+    
+    # 设置应用样式 - 简洁清晰主题
+    style = """
+        /* 主窗口背景*/
+        QMainWindow {
+            background-image: url("BG_PATH");
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        QMainWindow > QWidget#centralWidget {
+            background: transparent;
+        }
+        
+        /* 全局字体 */
+        QWidget {
+            font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+            font-size: 12px;
+            color: #333333;
+        }
+        
+        /* 分组框*/
+        QGroupBox {
+            border: 1px solid rgba(176, 196, 222, 180);
+            border-radius: 5px;
+            margin-top: 10px;
+            padding-top: 10px;
+            background-color: rgba(255, 255, 255, 160);
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top left;
+            left: 10px;
+            padding: 0 5px;
+            color: #2c5aa0;
+            font-weight: bold;
+        }
+        
+        /* 选项卡*/
+        QTabWidget::pane {
+            border: 1px solid rgba(176, 196, 222, 180);
+            border-radius: 5px;
+            background-color: rgba(255, 255, 255, 140);
+            top: -1px;
+        }
+        QTabBar::tab {
+            background-color: rgba(232, 240, 248, 200);
+            color: #333333;
+            padding: 8px 18px;
+            margin-right: 2px;
+            border: 1px solid rgba(176, 196, 222, 180);
+            border-bottom: none;
+            border-top-left-radius: 5px;
+            border-top-right-radius: 5px;
+        }
+        QTabBar::tab:selected {
+            background-color: rgba(255, 255, 255, 220);
+            color: #2c5aa0;
+            font-weight: bold;
+            border-bottom: 1px solid rgba(255, 255, 255, 220);
+        }
+        QTabBar::tab:hover:!selected {
+            background-color: rgba(245, 249, 252, 220);
+            color: #2c5aa0;
+        }
+        
+        /* 按钮 */
+        QPushButton {
+            padding: 6px 16px;
+            background-color: rgba(232, 240, 248, 200);
+            border: 1px solid rgba(176, 196, 222, 180);
+            border-radius: 4px;
+            color: #333333;
+        }
+        QPushButton:hover {
+            background-color: rgba(208, 228, 247, 220);
+            border-color: #7ba7d7;
+        }
+        QPushButton:pressed {
+            background-color: rgba(184, 212, 240, 240);
+        }
+        QPushButton:disabled {
+            background-color: rgba(224, 224, 224, 180);
+            color: #999999;
+            border-color: #cccccc;
+        }
+        
+        /* 输入框 */
+        QSpinBox, QComboBox, QLineEdit {
+            background-color: rgba(255, 255, 255, 200);
+            border: 1px solid rgba(176, 196, 222, 180);
+            border-radius: 3px;
+            padding: 4px 6px;
+            color: #333333;
+            min-height: 20px;
+        }
+        QSpinBox:focus, QComboBox:focus, QLineEdit:focus {
+            border-color: #5b9bd5;
+        }
+        QSpinBox::up-button, QSpinBox::down-button {
+            width: 0px;
+            border: none;
+        }
+        QComboBox::drop-down {
+            border: none;
+            width: 20px;
+        }
+        QComboBox::down-arrow {
+            width: 12px;
+            height: 12px;
+        }
+        QComboBox QAbstractItemView {
+            background-color: #ffffff;
+            border: 1px solid #b0c4de;
+            selection-background-color: #cce5ff;
+            color: #333333;
+        }
+        
+        /* 文本框 */
+        QTextEdit {
+            background-color: rgba(255, 255, 255, 180);
+            border: 1px solid rgba(176, 196, 222, 180);
+            border-radius: 4px;
+            color: #2e7d32;
+        }
+        
+        /* 单选框和复选框 */
+        QRadioButton, QCheckBox {
+            color: #333333;
+            spacing: 6px;
+        }
+        QRadioButton::indicator, QCheckBox::indicator {
+            width: 14px;
+            height: 14px;
+        }
+        
+        /* 表格 */
+        QTableWidget {
+            background-color: rgba(255, 255, 255, 180);
+            border: 1px solid rgba(176, 196, 222, 180);
+            gridline-color: #d0d0d0;
+            color: #333333;
+            selection-background-color: rgba(204, 229, 255, 200);
+        }
+        QHeaderView::section {
+            background-color: rgba(232, 240, 248, 200);
+            color: #2c5aa0;
+            padding: 5px;
+            border: 1px solid rgba(176, 196, 222, 180);
+            font-weight: bold;
+        }
+        
+        /* 状态栏 */
+        QStatusBar {
+            background-color: rgba(255, 255, 255, 160);
+            color: #333333;
+        }
+        
+        /* 标签 */
+        QLabel {
+            color: #333333;
+        }
+        
+        /* 滚动区域 */
+        QScrollArea {
+            background: transparent;
+            border: none;
+        }
+        QScrollArea > QWidget > QWidget {
+            background: transparent;
+        }
+        
+        /* 滚动条 */
+        QScrollBar:vertical {
+            background: #f0f0f0;
+            width: 10px;
+            border-radius: 5px;
+        }
+        QScrollBar::handle:vertical {
+            background: #c0c0c0;
+            border-radius: 5px;
+            min-height: 30px;
+        }
+        QScrollBar::handle:vertical:hover {
+            background: #a0a0a0;
+        }
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+            height: 0px;
+        }
+    """
+    app.setStyleSheet(style.replace('BG_PATH', bg_url))
+    
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())
+
+
+if __name__ == "__main__":
+    main()

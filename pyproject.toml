@@ -1,0 +1,22 @@
+[tool.uv]
+index-url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
+[project]
+name = "baby-bus"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+#requires-python = ">=3.10"
+requires-python = "==3.10.*"
+dependencies = [
+    "keyboard>=0.13.5",
+    "loguru>=0.7.3",
+    "opencv-python>=4.11.0.86",
+    "playsound==1.2.2",
+    "pyautogui>=0.9.54",
+    "pynput>=1.8.1",
+    "pywin32>=310",
+    "python-dotenv>=1.0.0",
+    "schedule>=1.2.2",
+    "scikit-image>=0.25.2",
+    "ultralytics>=8.3.165",
+]

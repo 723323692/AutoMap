@@ -1,0 +1,5021 @@
+{
+  "account1": [
+    {
+      "name": "瞎子",
+      "no": 1,
+      "buffs": [
+        [
+          "Key.ctrl_l"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "height": 155,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [],
+      "white_map_level": 2
+    },
+    {
+      "name": "花花",
+      "no": 2,
+      "buffs": [
+        [
+          "Key.up",
+          "Key.up",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        }
+      ],
+      "height": 141,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [],
+      "white_map_level": 2
+    },
+    {
+      "name": "红眼",
+      "no": 3,
+      "buffs": [
+        [
+          "Key.up",
+          "Key.down",
+          "Key.space"
+        ],
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "height": 155,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [],
+      "white_map_level": 2
+    },
+    {
+      "name": "旅人",
+      "no": 4,
+      "buffs": [
+        [
+          "Key.up",
+          "Key.down",
+          "Key.space"
+        ],
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [],
+      "white_map_level": 2
+    },
+    {
+      "name": "剑魂1",
+      "no": 5,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "skill",
+          "name": "拔刀",
+          "hot_key": "q",
+          "command": [
+            "q",
+            "q"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "height": 155,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "奶爸",
+      "no": 6,
+      "buffs": [
+        [
+          "e"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "height": 164,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.alt_l"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "妖护士1",
+      "no": 7,
+      "buffs": [
+        [
+          "Key.left",
+          "Key.left",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "刃影",
+      "no": 8,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        }
+      ],
+      "height": 149,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [],
+      "white_map_level": 2
+    },
+    {
+      "name": "剑帝1",
+      "no": 9,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "height": 149,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "鬼泣",
+      "no": 10,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "height": 155,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [],
+      "white_map_level": 2
+    },
+    {
+      "name": "男散打",
+      "no": 11,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ],
+        [
+          "Key.down",
+          "Key.down",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "height": 167,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "审判",
+      "no": 12,
+      "buffs": [
+        [
+          "Key.left",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "height": 169,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "特工",
+      "no": 13,
+      "buffs": [
+        [
+          "Key.left",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "skill",
+          "name": "月步",
+          "hot_key": "",
+          "command": [
+            "s",
+            "s",
+            "s",
+            "s",
+            "s",
+            "s",
+            "s",
+            "s",
+            "s",
+            "s",
+            "s",
+            "s"
+          ],
+          "concurrent": false,
+          "cd": 11.8,
+          "animation_time": 0.3,
+          "hotkey_cd_command_cast": false
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "skill",
+          "name": "锁定射击",
+          "hot_key": "",
+          "command": [
+            "w",
+            "w",
+            "w",
+            "w",
+            "w",
+            "w",
+            "w",
+            "w",
+            "w",
+            "w",
+            "w",
+            "w"
+          ],
+          "concurrent": true,
+          "cd": 11.8,
+          "animation_time": 0.1,
+          "hotkey_cd_command_cast": false
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        }
+      ],
+      "height": 173,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "奶弓",
+      "no": 14,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "skill",
+          "name": "加速",
+          "hot_key": "",
+          "command": [
+            "w",
+            "a"
+          ],
+          "concurrent": false,
+          "cd": 2,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": false
+        },
+        {
+          "type": "skill",
+          "name": "净化",
+          "hot_key": "",
+          "command": [
+            "q",
+            "s"
+          ],
+          "concurrent": false,
+          "cd": 2,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": false
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [],
+      "white_map_level": 2
+    },
+    {
+      "name": "奶妈",
+      "no": 15,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "skill",
+          "name": "勇气颂歌",
+          "hot_key": "s",
+          "command": [
+            "s",
+            "x",
+            "x",
+            "x",
+            "c"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        }
+      ],
+      "height": 151,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "f"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "鹦鹉",
+      "no": 16,
+      "buffs": [
+        [
+          "Key.up",
+          "Key.down",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "skill",
+          "name": "二觉链子",
+          "hot_key": "",
+          "command": [
+            "a"
+          ],
+          "concurrent": false,
+          "cd": 0.3,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": false
+        }
+      ],
+      "height": 151,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "妖护士2",
+      "no": 17,
+      "buffs": [
+        [
+          "Key.left",
+          "Key.left",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "剑帝2",
+      "no": 18,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "height": 149,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "剑魂2",
+      "no": 19,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "skill",
+          "name": "拔刀",
+          "hot_key": "q",
+          "command": [
+            "q",
+            "q"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        }
+      ],
+      "height": 155,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "红眼2",
+      "no": 20,
+      "buffs": [
+        [
+          "Key.up",
+          "Key.down",
+          "Key.space"
+        ],
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "height": 155,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "剑影",
+      "no": 21,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "height": 155,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "h"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "剑帝3",
+      "no": 22,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "height": 149,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "奶枪",
+      "no": 23,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        }
+      ],
+      "height": 158,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "奇美拉",
+      "no": 24,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "skill",
+          "name": "毒液喷洒",
+          "hot_key": "s",
+          "command": [
+            "s",
+            "",
+            "",
+            "",
+            "",
+            "s"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.2,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "skill",
+          "name": "95",
+          "hot_key": "q",
+          "command": [
+            "q",
+            "",
+            "",
+            "",
+            "q"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "奶妈2",
+      "no": 25,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "skill",
+          "name": "勇气颂歌",
+          "hot_key": "s",
+          "command": [
+            "s",
+            "x",
+            "x",
+            "x",
+            "c"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        }
+      ],
+      "height": 151,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "f"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "漫游",
+      "no": 26,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        }
+      ],
+      "height": 170,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "魔道",
+      "no": 27,
+      "buffs": [
+        [
+          "Key.up",
+          "Key.up",
+          "Key.space"
+        ],
+        [
+          "Key.down",
+          "Key.up",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "skill",
+          "name": "舒露露",
+          "hot_key": "q",
+          "command": [
+            "q",
+            "x",
+            "x",
+            "x",
+            "x",
+            "x",
+            "q"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 80,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "大枪",
+      "no": 28,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "height": 170,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "女散打",
+      "no": 29,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        },
+        {
+          "type": "skill",
+          "name": "闪电",
+          "hot_key": "",
+          "command": [
+            "z"
+          ],
+          "concurrent": false,
+          "cd": 11.6,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": false
+        }
+      ],
+      "height": 141,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "机械",
+      "no": 30,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "skill",
+          "name": "小自爆",
+          "hot_key": "s",
+          "command": [
+            "s",
+            "a",
+            "",
+            "",
+            "",
+            "",
+            "q"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "skill",
+          "name": "95",
+          "hot_key": "Key.ctrl_l",
+          "command": [
+            "Key.ctrl_l",
+            "a",
+            "s",
+            "",
+            "",
+            "",
+            "Key.ctrl_l"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 1.2,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "skill",
+          "name": "自爆陷阱",
+          "hot_key": "f",
+          "command": [
+            "f",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "q"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "skill",
+          "name": "大自爆",
+          "hot_key": "d",
+          "command": [
+            "d",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "q"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        }
+      ],
+      "height": 170,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "空姐",
+      "no": 31,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space",
+          "Key.right"
+        ],
+        [
+          "Key.left",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "skill",
+          "name": "切利",
+          "hot_key": "e",
+          "command": [
+            "e",
+            "d",
+            "",
+            "",
+            "",
+            "",
+            "e"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        }
+      ],
+      "height": 158,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "花花2",
+      "no": 32,
+      "buffs": [
+        [
+          "Key.up",
+          "Key.up",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        }
+      ],
+      "height": 141,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "花花3",
+      "no": 33,
+      "buffs": [
+        [
+          "Key.up",
+          "Key.up",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        }
+      ],
+      "height": 141,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "猎人",
+      "no": 34,
+      "buffs": [
+        [
+          "Key.up",
+          "Key.down",
+          "Key.space"
+        ],
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "关羽",
+      "no": 35,
+      "buffs": [
+        [
+          "Key.up",
+          "Key.down",
+          "Key.space"
+        ],
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        }
+      ],
+      "height": 166,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "男弹药",
+      "no": 36,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "height": 170,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "漫游2",
+      "no": 37,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        }
+      ],
+      "height": 170,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "帕拉丁",
+      "no": 38,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "专家",
+      "no": 39,
+      "buffs": [
+        [
+          "Key.left",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "skill",
+          "name": "95",
+          "hot_key": "g",
+          "command": [
+            "g",
+            "",
+            "",
+            "g"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 1.5,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        }
+      ],
+      "height": 173,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "skill",
+          "name": "80",
+          "hot_key": "w",
+          "command": [
+            "w",
+            "",
+            "",
+            "w"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "特工2",
+      "no": 40,
+      "buffs": [
+        [
+          "Key.left",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "skill",
+          "name": "月步",
+          "hot_key": "",
+          "command": [
+            "s",
+            "s",
+            "s",
+            "s",
+            "s",
+            "s",
+            "s",
+            "s",
+            "s",
+            "s",
+            "s",
+            "s"
+          ],
+          "concurrent": false,
+          "cd": 11.8,
+          "animation_time": 0.3,
+          "hotkey_cd_command_cast": false
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "skill",
+          "name": "锁定射击",
+          "hot_key": "",
+          "command": [
+            "w",
+            "w",
+            "w",
+            "w",
+            "w",
+            "w",
+            "w",
+            "w",
+            "w",
+            "w",
+            "w",
+            "w"
+          ],
+          "concurrent": true,
+          "cd": 11.8,
+          "animation_time": 0.1,
+          "hotkey_cd_command_cast": false
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        }
+      ],
+      "height": 173,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "white_map_level": 2
+    }
+  ],
+  "account2": [
+    {
+      "name": "花花",
+      "no": 1,
+      "buffs": [
+        [
+          "Key.up",
+          "Key.up",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        }
+      ],
+      "height": 141,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [],
+      "white_map_level": 2
+    },
+    {
+      "name": "剑魂",
+      "no": 2,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "skill",
+          "name": "拔刀",
+          "hot_key": "q",
+          "command": [
+            "q",
+            "q"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        }
+      ],
+      "height": 155,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "奶妈",
+      "no": 3,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "skill",
+          "name": "勇气颂歌",
+          "hot_key": "s",
+          "command": [
+            "s",
+            "x",
+            "x",
+            "x",
+            "c"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        }
+      ],
+      "height": 151,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "f"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "暗枪",
+      "no": 4,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        }
+      ],
+      "height": 167,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "黑五",
+      "no": 5,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "skill",
+          "name": "w",
+          "hot_key": "w",
+          "command": [
+            "w"
+          ],
+          "concurrent": false,
+          "cd": 7.5,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": false
+        },
+        {
+          "type": "skill",
+          "name": "大上挑",
+          "hot_key": "a",
+          "command": [
+            "a"
+          ],
+          "concurrent": false,
+          "cd": 10.5,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": false
+        },
+        {
+          "type": "skill",
+          "name": "e",
+          "hot_key": "e",
+          "command": [
+            "e"
+          ],
+          "concurrent": false,
+          "cd": 25.5,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": false
+        },
+        {
+          "type": "skill",
+          "name": "q",
+          "hot_key": "q",
+          "command": [
+            "q"
+          ],
+          "concurrent": false,
+          "cd": 30.5,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": false
+        },
+        {
+          "type": "skill",
+          "name": "r",
+          "hot_key": "r",
+          "command": [
+            "r"
+          ],
+          "concurrent": false,
+          "cd": 33,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": false
+        }
+      ],
+      "height": 155,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [],
+      "white_map_level": 2
+    },
+    {
+      "name": "刃影",
+      "no": 6,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        }
+      ],
+      "height": 149,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [],
+      "white_map_level": 2
+    },
+    {
+      "name": "男弹药",
+      "no": 7,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "height": 170,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "奶弓",
+      "no": 8,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "skill",
+          "name": "加速",
+          "hot_key": "",
+          "command": [
+            "w",
+            "a"
+          ],
+          "concurrent": false,
+          "cd": 2,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": false
+        },
+        {
+          "type": "skill",
+          "name": "净化",
+          "hot_key": "",
+          "command": [
+            "q",
+            "s"
+          ],
+          "concurrent": false,
+          "cd": 2,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": false
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [],
+      "white_map_level": 2
+    },
+    {
+      "name": "鬼泣",
+      "no": 9,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "height": 155,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [],
+      "white_map_level": 2
+    },
+    {
+      "name": "瞎子",
+      "no": 10,
+      "buffs": [
+        [
+          "Key.ctrl_l"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "height": 155,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [],
+      "white_map_level": 2
+    },
+    {
+      "name": "剑宗",
+      "no": 11,
+      "buffs": [
+        [
+          "Key.left",
+          "Key.down",
+          "Key.right",
+          "Key.space",
+          "Key.up"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "height": 149,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [],
+      "white_map_level": 2
+    },
+    {
+      "name": "红眼",
+      "no": 12,
+      "buffs": [
+        [
+          "Key.up",
+          "Key.down",
+          "Key.space"
+        ],
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "height": 155,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "奶爸",
+      "no": 13,
+      "buffs": [
+        [
+          "Key.left",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "height": 169,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "奶萝",
+      "no": 14,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "d"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "剑帝",
+      "no": 15,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "height": 149,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "赵云",
+      "no": 16,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "height": 167,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "妖护士",
+      "no": 17,
+      "buffs": [
+        [
+          "Key.left",
+          "Key.left",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "暗帝",
+      "no": 18,
+      "buffs": [
+        [
+          "Key.left",
+          "Key.left",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "奶枪1",
+      "no": 19,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        }
+      ],
+      "height": 158,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "奇美拉",
+      "no": 20,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "skill",
+          "name": "毒液喷洒",
+          "hot_key": "s",
+          "command": [
+            "s",
+            "",
+            "",
+            "",
+            "",
+            "s"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.2,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "skill",
+          "name": "95",
+          "hot_key": "q",
+          "command": [
+            "q",
+            "",
+            "",
+            "",
+            "q"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "次元",
+      "no": 21,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "skill",
+          "name": "毒液喷洒",
+          "hot_key": "s",
+          "command": [
+            "s",
+            "",
+            "",
+            "",
+            "",
+            "s"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.2,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        }
+      ],
+      "height": 152,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "复仇",
+      "no": 22,
+      "buffs": [
+        [
+          "Key.ctrl_l"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "height": 164,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "蓝拳",
+      "no": 23,
+      "buffs": [
+        [
+          "Key.ctrl_l"
+        ],
+        [
+          "Key.up",
+          "Key.up",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        }
+      ],
+      "height": 164,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        },
+        {
+          "type": "key",
+          "value": "Key.alt_l"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "剑魔",
+      "no": 24,
+      "buffs": [
+        [
+          "Key.ctrl_l"
+        ],
+        [
+          "Key.up",
+          "Key.up",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        }
+      ],
+      "height": 149,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "合金",
+      "no": 25,
+      "buffs": [
+        [
+          "Key.ctrl_l"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "height": 170,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "风法",
+      "no": 26,
+      "buffs": [
+        [
+          "Key.ctrl_l"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        }
+      ],
+      "height": 150,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "元素爆破",
+      "no": 27,
+      "buffs": [
+        [
+          "Key.ctrl_l"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "height": 150,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "空姐",
+      "no": 28,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space",
+          "Key.right"
+        ],
+        [
+          "Key.left",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "skill",
+          "name": "切利",
+          "hot_key": "e",
+          "command": [
+            "e",
+            "d",
+            "",
+            "",
+            "",
+            "",
+            "e"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        }
+      ],
+      "height": 158,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "魔灵",
+      "no": 29,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "忍者",
+      "no": 30,
+      "buffs": [],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "height": 151,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [],
+      "white_map_level": 2
+    },
+    {
+      "name": "旅人",
+      "no": 31,
+      "buffs": [
+        [
+          "Key.ctrl_l"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "帕拉丁",
+      "no": 32,
+      "buffs": [
+        [
+          "Key.ctrl_l"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "刺客",
+      "no": 33,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "height": 151,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.alt_l"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "机械",
+      "no": 34,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "skill",
+          "name": "小自爆",
+          "hot_key": "s",
+          "command": [
+            "s",
+            "a",
+            "",
+            "",
+            "",
+            "",
+            "q"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "skill",
+          "name": "95",
+          "hot_key": "Key.ctrl_l",
+          "command": [
+            "Key.ctrl_l",
+            "a",
+            "s",
+            "",
+            "",
+            "",
+            "Key.ctrl_l"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 1.2,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "skill",
+          "name": "自爆陷阱",
+          "hot_key": "f",
+          "command": [
+            "f",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "q"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        },
+        {
+          "type": "skill",
+          "name": "大自爆",
+          "hot_key": "d",
+          "command": [
+            "d",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "q"
+          ],
+          "concurrent": false,
+          "cd": 0,
+          "animation_time": 0.7,
+          "hotkey_cd_command_cast": true
+        }
+      ],
+      "height": 170,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "女大枪",
+      "no": 35,
+      "buffs": [
+        [
+          "q"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "a"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "height": 151,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "奶枪2",
+      "no": 36,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        }
+      ],
+      "height": 158,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": true,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "w"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "龙神",
+      "no": 37,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "g"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        }
+      ],
+      "height": 138,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "white_map_level": 2
+    }
+  ]
+}
