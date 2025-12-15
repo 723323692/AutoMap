@@ -688,7 +688,7 @@ def adjust_stutter_alarm(start_time,role_name,role_no,fight_count,handle):
     count = False
     while not stop_signal[0]:
         time.sleep(1)
-        if (time.time() - start_time) > 60 and count:
+        if (time.time() - start_time) > 60 and not count:
             kbu.do_press(dnf.Key_collect_role)
             logger.warning(f'第【{role_no}】个角色，【{role_name}】第【{fight_count}】次刷图,卡门【{(time.time() - start_time):.1f}】秒,尝试移动角色至上个门口~~~~~~')
             count = True
