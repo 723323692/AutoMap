@@ -963,6 +963,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self._create_stronger_tab(), "妖气追踪/白图")
         self.tabs.addTab(self._create_abyss_tab(), "深渊模式")
         self.tabs.addTab(self._create_role_tab(), "角色列表")
+        self.tabs.addTab(self._create_key_config_tab(), "按键配置")
         self.tabs.addTab(self._create_settings_tab(), "设置")
         
         # 日志区域
@@ -1382,6 +1383,365 @@ class MainWindow(QMainWindow):
         
         self.refresh_role_table()
         return widget
+    
+    def _create_key_config_tab(self):
+        """创建按键配置选项卡"""
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(12)
+        layout.setContentsMargins(10, 10, 10, 10)
+        
+        label_width = 70
+        combo_width = 100
+        
+        # 游戏按键配置
+        game_key_group = QGroupBox("游戏按键配置")
+        game_key_layout = QVBoxLayout(game_key_group)
+        game_key_layout.setSpacing(8)
+        game_key_layout.setContentsMargins(10, 10, 10, 10)
+        
+        # 一行显示：再次挑战 + 返回城镇 + 移动物品 + 移动角色
+        row1 = QHBoxLayout()
+        lbl1 = QLabel("再次挑战:")
+        lbl1.setFixedWidth(label_width)
+        lbl1.setToolTip("游戏中再次挑战的按键")
+        row1.addWidget(lbl1)
+        self.key_try_again_combo = NoScrollComboBox()
+        self.key_try_again_combo.setFixedWidth(combo_width)
+        self._populate_key_combo(self.key_try_again_combo)
+        self.key_try_again_combo.setCurrentText("小键盘0")
+        row1.addWidget(self.key_try_again_combo)
+        row1.addSpacing(20)
+        lbl2 = QLabel("返回城镇:")
+        lbl2.setFixedWidth(label_width)
+        lbl2.setToolTip("游戏中返回城镇的按键")
+        row1.addWidget(lbl2)
+        self.key_return_town_combo = NoScrollComboBox()
+        self.key_return_town_combo.setFixedWidth(combo_width)
+        self._populate_key_combo(self.key_return_town_combo)
+        self.key_return_town_combo.setCurrentText("F12")
+        row1.addWidget(self.key_return_town_combo)
+        row1.addSpacing(20)
+        lbl3 = QLabel("移动物品:")
+        lbl3.setFixedWidth(label_width)
+        lbl3.setToolTip("游戏中移动物品的按键")
+        row1.addWidget(lbl3)
+        self.key_collect_loot_combo = NoScrollComboBox()
+        self.key_collect_loot_combo.setFixedWidth(combo_width)
+        self._populate_key_combo(self.key_collect_loot_combo)
+        self.key_collect_loot_combo.setCurrentText("右Ctrl")
+        row1.addWidget(self.key_collect_loot_combo)
+        row1.addSpacing(20)
+        lbl4 = QLabel("移动角色:")
+        lbl4.setFixedWidth(label_width)
+        lbl4.setToolTip("游戏中移动角色的按键")
+        row1.addWidget(lbl4)
+        self.key_collect_role_combo = NoScrollComboBox()
+        self.key_collect_role_combo.setFixedWidth(combo_width)
+        self._populate_key_combo(self.key_collect_role_combo)
+        self.key_collect_role_combo.setCurrentText("小键盘7")
+        row1.addWidget(self.key_collect_role_combo)
+        row1.addStretch()
+        game_key_layout.addLayout(row1)
+        
+        layout.addWidget(game_key_group)
+        
+        # 脚本控制按键配置
+        script_key_group = QGroupBox("脚本控制按键配置")
+        script_key_layout = QVBoxLayout(script_key_group)
+        script_key_layout.setSpacing(8)
+        script_key_layout.setContentsMargins(10, 10, 10, 10)
+        
+        # 一行显示：启动 + 暂停 + 停止
+        row3 = QHBoxLayout()
+        lbl5 = QLabel("启动脚本:")
+        lbl5.setFixedWidth(label_width)
+        lbl5.setToolTip("启动脚本的热键")
+        row3.addWidget(lbl5)
+        self.key_start_script_combo = NoScrollComboBox()
+        self.key_start_script_combo.setFixedWidth(combo_width)
+        self._populate_script_key_combo(self.key_start_script_combo)
+        self.key_start_script_combo.setCurrentText("F10")
+        row3.addWidget(self.key_start_script_combo)
+        row3.addSpacing(30)
+        lbl6 = QLabel("暂停脚本:")
+        lbl6.setFixedWidth(label_width)
+        lbl6.setToolTip("暂停/继续脚本的热键")
+        row3.addWidget(lbl6)
+        self.key_pause_script_combo = NoScrollComboBox()
+        self.key_pause_script_combo.setFixedWidth(combo_width)
+        self._populate_script_key_combo(self.key_pause_script_combo)
+        self.key_pause_script_combo.setCurrentText("Delete")
+        row3.addWidget(self.key_pause_script_combo)
+        row3.addSpacing(30)
+        lbl7 = QLabel("停止脚本:")
+        lbl7.setFixedWidth(label_width)
+        lbl7.setToolTip("停止脚本的热键")
+        row3.addWidget(lbl7)
+        self.key_stop_script_combo = NoScrollComboBox()
+        self.key_stop_script_combo.setFixedWidth(combo_width)
+        self._populate_script_key_combo(self.key_stop_script_combo)
+        self.key_stop_script_combo.setCurrentText("End")
+        row3.addWidget(self.key_stop_script_combo)
+        row3.addStretch()
+        script_key_layout.addLayout(row3)
+        
+        layout.addWidget(script_key_group)
+        
+        # 按钮区域
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(15)
+        
+        load_key_btn = QPushButton("从配置文件加载")
+        load_key_btn.setFixedSize(130, 35)
+        load_key_btn.clicked.connect(self.load_key_config)
+        btn_layout.addWidget(load_key_btn)
+        
+        save_key_btn = QPushButton("保存按键配置")
+        save_key_btn.setFixedSize(130, 35)
+        save_key_btn.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; font-weight: bold; }")
+        save_key_btn.clicked.connect(self.save_key_config)
+        btn_layout.addWidget(save_key_btn)
+        
+        reset_key_btn = QPushButton("恢复默认配置")
+        reset_key_btn.setFixedSize(130, 35)
+        reset_key_btn.clicked.connect(self.reset_key_config)
+        btn_layout.addWidget(reset_key_btn)
+        
+        btn_layout.addStretch()
+        layout.addLayout(btn_layout)
+        
+        # 说明
+        note_group = QGroupBox("说明")
+        note_layout = QVBoxLayout(note_group)
+        note_layout.setSpacing(4)
+        note_layout.setContentsMargins(8, 8, 8, 8)
+        note_layout.addWidget(QLabel("• 游戏按键需要与游戏内设置保持一致"))
+        note_layout.addWidget(QLabel("• 脚本控制按键用于控制脚本的启动、暂停和停止"))
+        note_layout.addWidget(QLabel("• 修改后点击'保存按键配置'使配置生效"))
+        note_layout.addWidget(QLabel("• 配置保存在 dnf/dnf_config.py 文件中"))
+        layout.addWidget(note_group)
+        
+        layout.addStretch()
+        
+        # 延迟加载配置（等 log_text 创建后再加载）
+        QTimer.singleShot(100, self.load_key_config)
+        
+        scroll.setWidget(widget)
+        return scroll
+    
+    def _populate_key_combo(self, combo):
+        """填充游戏按键下拉框"""
+        keys = [
+            "小键盘0", "小键盘1", "小键盘2", "小键盘3", "小键盘4",
+            "小键盘5", "小键盘6", "小键盘7", "小键盘8", "小键盘9",
+            "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+            "左Ctrl", "右Ctrl", "左Alt", "右Alt", "左Shift", "右Shift",
+            "Space", "Enter", "Tab", "Esc", "Backspace",
+            "Insert", "Delete", "Home", "End", "PageUp", "PageDown",
+            "上", "下", "左", "右"
+        ]
+        combo.addItems(keys)
+        combo.setMaxVisibleItems(12)
+        combo.setStyleSheet("QComboBox { combobox-popup: 0; }")
+    
+    def _populate_script_key_combo(self, combo):
+        """填充脚本控制按键下拉框"""
+        keys = [
+            "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+            "Delete", "End", "Home", "Insert", "PageUp", "PageDown",
+            "Pause", "ScrollLock", "PrintScreen"
+        ]
+        combo.addItems(keys)
+        combo.setMaxVisibleItems(12)
+        combo.setStyleSheet("QComboBox { combobox-popup: 0; }")
+    
+    def _key_display_to_code(self, display_name):
+        """将显示名称转换为代码表示"""
+        key_map = {
+            "小键盘0": "numpad_0", "小键盘1": "KeyCode.from_vk(97)", "小键盘2": "numpad_2",
+            "小键盘3": "KeyCode.from_vk(99)", "小键盘4": "KeyCode.from_vk(100)",
+            "小键盘5": "KeyCode.from_vk(101)", "小键盘6": "KeyCode.from_vk(102)",
+            "小键盘7": "numpad_7", "小键盘8": "KeyCode.from_vk(104)",
+            "小键盘9": "KeyCode.from_vk(105)",
+            "F1": "Key.f1", "F2": "Key.f2", "F3": "Key.f3", "F4": "Key.f4",
+            "F5": "Key.f5", "F6": "Key.f6", "F7": "Key.f7", "F8": "Key.f8",
+            "F9": "Key.f9", "F10": "Key.f10", "F11": "Key.f11", "F12": "Key.f12",
+            "左Ctrl": "Key.ctrl_l", "右Ctrl": "Key.ctrl_r",
+            "左Alt": "Key.alt_l", "右Alt": "Key.alt_r",
+            "左Shift": "Key.shift_l", "右Shift": "Key.shift_r",
+            "Space": "Key.space", "Enter": "Key.enter", "Tab": "Key.tab",
+            "Esc": "Key.esc", "Backspace": "Key.backspace",
+            "Insert": "Key.insert", "Delete": "Key.delete",
+            "Home": "Key.home", "End": "Key.end",
+            "PageUp": "Key.page_up", "PageDown": "Key.page_down",
+            "上": "Key.up", "下": "Key.down", "左": "Key.left", "右": "Key.right",
+            "Pause": "Key.pause", "ScrollLock": "Key.scroll_lock",
+            "PrintScreen": "Key.print_screen"
+        }
+        return key_map.get(display_name, f"Key.{display_name.lower()}")
+    
+    def _key_code_to_display(self, code_str):
+        """将代码表示转换为显示名称"""
+        code_map = {
+            "numpad_0": "小键盘0", "KeyCode.from_vk(96)": "小键盘0",
+            "KeyCode.from_vk(97)": "小键盘1", "numpad_2": "小键盘2",
+            "KeyCode.from_vk(98)": "小键盘2", "KeyCode.from_vk(99)": "小键盘3",
+            "KeyCode.from_vk(100)": "小键盘4", "KeyCode.from_vk(101)": "小键盘5",
+            "KeyCode.from_vk(102)": "小键盘6", "numpad_7": "小键盘7",
+            "KeyCode.from_vk(103)": "小键盘7", "KeyCode.from_vk(104)": "小键盘8",
+            "KeyCode.from_vk(105)": "小键盘9",
+            "Key.f1": "F1", "Key.f2": "F2", "Key.f3": "F3", "Key.f4": "F4",
+            "Key.f5": "F5", "Key.f6": "F6", "Key.f7": "F7", "Key.f8": "F8",
+            "Key.f9": "F9", "Key.f10": "F10", "Key.f11": "F11", "Key.f12": "F12",
+            "Key.ctrl_l": "左Ctrl", "Key.ctrl_r": "右Ctrl",
+            "Key.alt_l": "左Alt", "Key.alt_r": "右Alt",
+            "Key.shift_l": "左Shift", "Key.shift_r": "右Shift",
+            "Key.space": "Space", "Key.enter": "Enter", "Key.tab": "Tab",
+            "Key.esc": "Esc", "Key.backspace": "Backspace",
+            "Key.insert": "Insert", "Key.delete": "Delete",
+            "Key.home": "Home", "Key.end": "End",
+            "Key.page_up": "PageUp", "Key.page_down": "PageDown",
+            "Key.up": "上", "Key.down": "下", "Key.left": "左", "Key.right": "右",
+            "Key.pause": "Pause", "Key.scroll_lock": "ScrollLock",
+            "Key.print_screen": "PrintScreen",
+            "f10": "F10", "delete": "Delete", "end": "End"
+        }
+        return code_map.get(code_str, code_str)
+    
+    def load_key_config(self):
+        """从 dnf_config.py 加载按键配置"""
+        try:
+            config_path = os.path.join(PROJECT_ROOT, 'dnf', 'dnf_config.py')
+            with open(config_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            import re
+            
+            # 解析 key_try_again
+            match = re.search(r'key_try_again\s*=\s*(\S+)', content)
+            if match:
+                val = match.group(1)
+                display = self._key_code_to_display(val)
+                idx = self.key_try_again_combo.findText(display)
+                if idx >= 0:
+                    self.key_try_again_combo.setCurrentIndex(idx)
+            
+            # 解析 key_return_to_town
+            match = re.search(r'key_return_to_town\s*=\s*(\S+)', content)
+            if match:
+                val = match.group(1)
+                display = self._key_code_to_display(val)
+                idx = self.key_return_town_combo.findText(display)
+                if idx >= 0:
+                    self.key_return_town_combo.setCurrentIndex(idx)
+            
+            # 解析 Key_collect_loot
+            match = re.search(r'Key_collect_loot\s*=\s*(\S+)', content)
+            if match:
+                val = match.group(1)
+                display = self._key_code_to_display(val)
+                idx = self.key_collect_loot_combo.findText(display)
+                if idx >= 0:
+                    self.key_collect_loot_combo.setCurrentIndex(idx)
+            
+            # 解析 Key_collect_role
+            match = re.search(r'Key_collect_role\s*=\s*(\S+)', content)
+            if match:
+                val = match.group(1)
+                display = self._key_code_to_display(val)
+                idx = self.key_collect_role_combo.findText(display)
+                if idx >= 0:
+                    self.key_collect_role_combo.setCurrentIndex(idx)
+            
+            # 解析 key_start_script
+            match = re.search(r"key_start_script\s*=\s*['\"]?(\w+)['\"]?", content)
+            if match:
+                val = match.group(1)
+                display = self._key_code_to_display(val)
+                idx = self.key_start_script_combo.findText(display)
+                if idx >= 0:
+                    self.key_start_script_combo.setCurrentIndex(idx)
+            
+            # 解析 key_pause_script
+            match = re.search(r'key_pause_script\s*=\s*\{keyboard\.Key\.(\w+)\}', content)
+            if match:
+                val = match.group(1)
+                display = self._key_code_to_display(val.capitalize())
+                idx = self.key_pause_script_combo.findText(display)
+                if idx >= 0:
+                    self.key_pause_script_combo.setCurrentIndex(idx)
+            
+            # 解析 key_stop_script
+            match = re.search(r'key_stop_script\s*=\s*\{keyboard\.Key\.(\w+)\}', content)
+            if match:
+                val = match.group(1)
+                display = self._key_code_to_display(val.capitalize())
+                idx = self.key_stop_script_combo.findText(display)
+                if idx >= 0:
+                    self.key_stop_script_combo.setCurrentIndex(idx)
+            
+            self.log("按键配置已加载")
+        except Exception as e:
+            self.log(f"加载按键配置失败: {e}")
+    
+    def save_key_config(self):
+        """保存按键配置到 dnf_config.py"""
+        try:
+            config_path = os.path.join(PROJECT_ROOT, 'dnf', 'dnf_config.py')
+            with open(config_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            import re
+            
+            # 获取选择的按键
+            try_again = self._key_display_to_code(self.key_try_again_combo.currentText())
+            return_town = self._key_display_to_code(self.key_return_town_combo.currentText())
+            collect_loot = self._key_display_to_code(self.key_collect_loot_combo.currentText())
+            collect_role = self._key_display_to_code(self.key_collect_role_combo.currentText())
+            start_script = self.key_start_script_combo.currentText().lower()
+            pause_script = self.key_pause_script_combo.currentText().lower()
+            stop_script = self.key_stop_script_combo.currentText().lower()
+            
+            # 替换配置
+            content = re.sub(r'(key_try_again\s*=\s*)\S+', f'\\1{try_again}', content)
+            content = re.sub(r'(key_return_to_town\s*=\s*)\S+', f'\\1{return_town}', content)
+            content = re.sub(r'(Key_collect_loot\s*=\s*)\S+', f'\\1{collect_loot}', content)
+            content = re.sub(r'(Key_collect_role\s*=\s*)\S+', f'\\1{collect_role}', content)
+            content = re.sub(r"(key_start_script\s*=\s*)['\"]?\w+['\"]?", f"\\1'{start_script}'", content)
+            content = re.sub(r'(key_pause_script\s*=\s*)\{keyboard\.Key\.\w+\}', f'\\1{{keyboard.Key.{pause_script}}}', content)
+            content = re.sub(r'(key_stop_script\s*=\s*)\{keyboard\.Key\.\w+\}', f'\\1{{keyboard.Key.{stop_script}}}', content)
+            
+            with open(config_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            
+            # 重新加载 dnf_config 模块使配置立即生效
+            import importlib
+            import dnf.dnf_config
+            importlib.reload(dnf.dnf_config)
+            
+            self.log("按键配置已保存并生效")
+            QMessageBox.information(self, "成功", "按键配置已保存并立即生效！")
+        except Exception as e:
+            self.log(f"保存按键配置失败: {e}")
+            QMessageBox.critical(self, "错误", f"保存失败: {e}")
+    
+    def reset_key_config(self):
+        """恢复默认按键配置"""
+        reply = QMessageBox.question(self, "确认", "确定要恢复默认按键配置吗？",
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.key_try_again_combo.setCurrentText("小键盘0")
+            self.key_return_town_combo.setCurrentText("F12")
+            self.key_collect_loot_combo.setCurrentText("右Ctrl")
+            self.key_collect_role_combo.setCurrentText("小键盘7")
+            self.key_start_script_combo.setCurrentText("F10")
+            self.key_pause_script_combo.setCurrentText("Delete")
+            self.key_stop_script_combo.setCurrentText("End")
+            self.log("按键配置已恢复默认值")
     
     def _create_settings_tab(self):
         """创建设置选项卡"""
