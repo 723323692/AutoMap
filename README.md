@@ -197,7 +197,7 @@ BabyBus/
 
 ## 作者
 
-[冷兔](https://github.com/723323692
+[冷兔](https://github.com/723323692)
 
 - 723323692@qq.com /  zzs1999bd@163.com
 - GitHub: https://github.com/723323692
