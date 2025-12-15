@@ -22,7 +22,8 @@ from PyQt5.QtWidgets import (
     QTabWidget, QGroupBox, QLabel, QSpinBox, QComboBox, QCheckBox,
     QPushButton, QTextEdit, QRadioButton, QButtonGroup, QTableWidget,
     QTableWidgetItem, QHeaderView, QMessageBox, QDialog, QLineEdit,
-    QFormLayout, QDialogButtonBox, QScrollArea, QProgressDialog
+    QFormLayout, QDialogButtonBox, QScrollArea, QProgressDialog,
+    QListWidget, QListWidgetItem, QDoubleSpinBox
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QObject, QTimer, QTime
 from PyQt5.QtGui import QFont, QTextCursor, QIcon, QPalette, QLinearGradient, QColor, QBrush
@@ -40,6 +41,12 @@ class NoScrollSpinBox(QSpinBox):
 
 class NoScrollComboBox(QComboBox):
     """禁用滚轮的ComboBox"""
+    def wheelEvent(self, event):
+        event.ignore()
+
+
+class NoScrollDoubleSpinBox(QDoubleSpinBox):
+    """禁用滚轮的DoubleSpinBox"""
     def wheelEvent(self, event):
         event.ignore()
 
@@ -396,56 +403,505 @@ class ScriptWorker(QThread):
             os.chdir(original_dir)
 
 
-class RoleEditDialog(QDialog):
-    """角色编辑对话框"""
-    def __init__(self, parent=None, role_data=None):
+class SkillRowWidget(QWidget):
+    """单个技能行组件"""
+    deleted = pyqtSignal(object)
+    
+    def __init__(self, skill_data=None, parent=None):
         super().__init__(parent)
-        self.role_data = role_data or {}
-        self.setWindowTitle("编辑角色" if role_data else "添加角色")
-        self.setMinimumWidth(350)
+        self.skill_data = skill_data or {}
         self.init_ui()
     
     def init_ui(self):
-        layout = QFormLayout(self)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(5)
         
+        # 技能类型选择
+        layout.addWidget(QLabel("类型:"))
+        self.type_combo = NoScrollComboBox()
+        self.type_combo.addItems(['普通按键', '特殊按键', '引爆技能', '组合技能', '自定义技能'])
+        self.type_combo.setMinimumWidth(100)
+        self.type_combo.currentIndexChanged.connect(self._on_type_changed)
+        layout.addWidget(self.type_combo)
+        
+        # 普通按键输入
+        self.str_label = QLabel("按键:")
+        layout.addWidget(self.str_label)
+        self.str_edit = QLineEdit()
+        self.str_edit.setPlaceholderText("q")
+        self.str_edit.setFixedWidth(50)
+        layout.addWidget(self.str_edit)
+        
+        # 特殊按键选择
+        self.key_label = QLabel("按键:")
+        layout.addWidget(self.key_label)
+        self.key_combo = NoScrollComboBox()
+        self.key_combo.addItems(['ctrl_l', 'alt_l', 'shift_l', 'space', 'tab', 'esc',
+                                  'up', 'down', 'left', 'right', 'enter'])
+        self.key_combo.setFixedWidth(80)
+        layout.addWidget(self.key_combo)
+        
+        # 引爆技能字段
+        self.detonate_name_label = QLabel("名称:")
+        layout.addWidget(self.detonate_name_label)
+        self.detonate_name_edit = QLineEdit()
+        self.detonate_name_edit.setPlaceholderText("技能名")
+        self.detonate_name_edit.setFixedWidth(60)
+        layout.addWidget(self.detonate_name_edit)
+        
+        self.detonate_hotkey_label = QLabel("热键:")
+        layout.addWidget(self.detonate_hotkey_label)
+        self.detonate_hotkey_edit = QLineEdit()
+        self.detonate_hotkey_edit.setPlaceholderText("q")
+        self.detonate_hotkey_edit.setFixedWidth(30)
+        layout.addWidget(self.detonate_hotkey_edit)
+        
+        self.detonate_cd_check = QCheckBox("检测CD")
+        self.detonate_cd_check.setChecked(True)
+        self.detonate_cd_check.stateChanged.connect(self._on_detonate_cd_changed)
+        layout.addWidget(self.detonate_cd_check)
+        
+        self.detonate_cd_label = QLabel("CD:")
+        layout.addWidget(self.detonate_cd_label)
+        self.detonate_cd_spin = NoScrollDoubleSpinBox()
+        self.detonate_cd_spin.setRange(0, 100)
+        self.detonate_cd_spin.setDecimals(1)
+        self.detonate_cd_spin.setSuffix("s")
+        self.detonate_cd_spin.setFixedWidth(55)
+        layout.addWidget(self.detonate_cd_spin)
+        
+        # 组合技能字段
+        self.combo_name_label = QLabel("名称:")
+        layout.addWidget(self.combo_name_label)
+        self.combo_name_edit = QLineEdit()
+        self.combo_name_edit.setPlaceholderText("技能名")
+        self.combo_name_edit.setFixedWidth(60)
+        layout.addWidget(self.combo_name_edit)
+        
+        self.combo_hotkey_label = QLabel("热键:")
+        layout.addWidget(self.combo_hotkey_label)
+        self.combo_hotkey_edit = QLineEdit()
+        self.combo_hotkey_edit.setPlaceholderText("q")
+        self.combo_hotkey_edit.setFixedWidth(30)
+        layout.addWidget(self.combo_hotkey_edit)
+        
+        self.combo_command_label = QLabel("指令:")
+        layout.addWidget(self.combo_command_label)
+        self.combo_command_edit = QLineEdit()
+        self.combo_command_edit.setPlaceholderText("q,q,q")
+        self.combo_command_edit.setFixedWidth(80)
+        layout.addWidget(self.combo_command_edit)
+        
+        # 自定义技能字段（包含所有参数）
+        self.custom_name_label = QLabel("名称:")
+        layout.addWidget(self.custom_name_label)
+        self.custom_name_edit = QLineEdit()
+        self.custom_name_edit.setPlaceholderText("可选")
+        self.custom_name_edit.setFixedWidth(50)
+        layout.addWidget(self.custom_name_edit)
+        
+        self.custom_hotkey_label = QLabel("热键:")
+        layout.addWidget(self.custom_hotkey_label)
+        self.custom_hotkey_edit = QLineEdit()
+        self.custom_hotkey_edit.setPlaceholderText("可选")
+        self.custom_hotkey_edit.setFixedWidth(30)
+        layout.addWidget(self.custom_hotkey_edit)
+        
+        self.custom_command_label = QLabel("指令:")
+        layout.addWidget(self.custom_command_label)
+        self.custom_command_edit = QLineEdit()
+        self.custom_command_edit.setPlaceholderText("可选")
+        self.custom_command_edit.setFixedWidth(70)
+        layout.addWidget(self.custom_command_edit)
+        
+        self.custom_cd_label = QLabel("CD:")
+        layout.addWidget(self.custom_cd_label)
+        self.custom_cd_spin = NoScrollDoubleSpinBox()
+        self.custom_cd_spin.setRange(0, 100)
+        self.custom_cd_spin.setDecimals(1)
+        self.custom_cd_spin.setSuffix("s")
+        self.custom_cd_spin.setFixedWidth(50)
+        layout.addWidget(self.custom_cd_spin)
+        
+        self.custom_cd_check = QCheckBox("检测CD")
+        self.custom_cd_check.setChecked(False)
+        self.custom_cd_check.stateChanged.connect(self._on_custom_cd_changed)
+        layout.addWidget(self.custom_cd_check)
+        
+        # 删除按钮
+        del_btn = QPushButton("×")
+        del_btn.setFixedSize(24, 24)
+        del_btn.setStyleSheet("color: red; font-weight: bold;")
+        del_btn.clicked.connect(lambda: self.deleted.emit(self))
+        layout.addWidget(del_btn)
+        
+        layout.addStretch()
+        
+        # 加载数据
+        self._load_data()
+        self._on_type_changed()
+    
+    def _load_data(self):
+        """加载技能数据"""
+        if not self.skill_data:
+            return
+        
+        skill_type = self.skill_data.get('type', 'str')
+        if skill_type == 'str':
+            self.type_combo.setCurrentIndex(0)
+            self.str_edit.setText(self.skill_data.get('value', ''))
+        elif skill_type == 'key':
+            self.type_combo.setCurrentIndex(1)
+            key_val = self.skill_data.get('value', '').replace('Key.', '')
+            idx = self.key_combo.findText(key_val)
+            if idx >= 0:
+                self.key_combo.setCurrentIndex(idx)
+        elif skill_type == 'skill':
+            # 判断是引爆技能、组合技能还是自定义技能
+            hotkey_cd = self.skill_data.get('hotkey_cd_command_cast', False)
+            cmd = self.skill_data.get('command', [])
+            # 引爆技能特征：指令为 [热键, '', '', 热键] 格式
+            is_detonate = len(cmd) == 4 and cmd[1] == '' and cmd[2] == ''
+            if is_detonate:
+                # 引爆技能
+                self.type_combo.setCurrentIndex(2)
+                self.detonate_name_edit.setText(self.skill_data.get('name', ''))
+                self.detonate_hotkey_edit.setText(self.skill_data.get('hot_key', ''))
+                self.detonate_cd_check.setChecked(hotkey_cd)
+                self.detonate_cd_spin.setValue(self.skill_data.get('cd', 0))
+            elif hotkey_cd:
+                # 组合技能（hotkey_cd_command_cast 为 True）
+                self.type_combo.setCurrentIndex(3)
+                self.combo_name_edit.setText(self.skill_data.get('name', ''))
+                self.combo_hotkey_edit.setText(self.skill_data.get('hot_key', ''))
+                self.combo_command_edit.setText(','.join(cmd) if cmd else '')
+            else:
+                # 自定义技能
+                self.type_combo.setCurrentIndex(4)
+                self.custom_name_edit.setText(self.skill_data.get('name', ''))
+                self.custom_hotkey_edit.setText(self.skill_data.get('hot_key', ''))
+                self.custom_command_edit.setText(','.join(cmd) if cmd else '')
+                self.custom_cd_spin.setValue(self.skill_data.get('cd', 0))
+                self.custom_cd_check.setChecked(hotkey_cd)
+        elif skill_type == 'detonate':
+            # 新添加的引爆技能
+            self.type_combo.setCurrentIndex(2)
+        elif skill_type == 'combo':
+            # 新添加的组合技能
+            self.type_combo.setCurrentIndex(3)
+        elif skill_type == 'custom':
+            # 新添加的自定义技能
+            self.type_combo.setCurrentIndex(4)
+    
+    def _on_type_changed(self):
+        """类型切换时显示/隐藏对应字段"""
+        idx = self.type_combo.currentIndex()
+        # 普通按键
+        self.str_label.setVisible(idx == 0)
+        self.str_edit.setVisible(idx == 0)
+        # 特殊按键
+        self.key_label.setVisible(idx == 1)
+        self.key_combo.setVisible(idx == 1)
+        # 引爆技能
+        is_detonate = idx == 2
+        self.detonate_name_label.setVisible(is_detonate)
+        self.detonate_name_edit.setVisible(is_detonate)
+        self.detonate_hotkey_label.setVisible(is_detonate)
+        self.detonate_hotkey_edit.setVisible(is_detonate)
+        self.detonate_cd_check.setVisible(is_detonate)
+        self.detonate_cd_label.setVisible(is_detonate and not self.detonate_cd_check.isChecked())
+        self.detonate_cd_spin.setVisible(is_detonate and not self.detonate_cd_check.isChecked())
+        # 组合技能
+        is_combo = idx == 3
+        self.combo_name_label.setVisible(is_combo)
+        self.combo_name_edit.setVisible(is_combo)
+        self.combo_hotkey_label.setVisible(is_combo)
+        self.combo_hotkey_edit.setVisible(is_combo)
+        self.combo_command_label.setVisible(is_combo)
+        self.combo_command_edit.setVisible(is_combo)
+        # 自定义技能
+        is_custom = idx == 4
+        self.custom_name_label.setVisible(is_custom)
+        self.custom_name_edit.setVisible(is_custom)
+        self.custom_hotkey_label.setVisible(is_custom)
+        self.custom_hotkey_edit.setVisible(is_custom)
+        self.custom_command_label.setVisible(is_custom)
+        self.custom_command_edit.setVisible(is_custom)
+        self.custom_cd_check.setVisible(is_custom)
+        self.custom_cd_label.setVisible(is_custom and not self.custom_cd_check.isChecked())
+        self.custom_cd_spin.setVisible(is_custom and not self.custom_cd_check.isChecked())
+    
+    def _on_detonate_cd_changed(self, state):
+        """引爆技能CD检测开关变化"""
+        is_detonate = self.type_combo.currentIndex() == 2
+        self.detonate_cd_label.setVisible(is_detonate and not state)
+        self.detonate_cd_spin.setVisible(is_detonate and not state)
+    
+    def _on_custom_cd_changed(self, state):
+        """自定义技能CD检测开关变化"""
+        is_custom = self.type_combo.currentIndex() == 4
+        self.custom_cd_label.setVisible(is_custom and not state)
+        self.custom_cd_spin.setVisible(is_custom and not state)
+    
+    def get_data(self):
+        """获取技能数据"""
+        idx = self.type_combo.currentIndex()
+        if idx == 0:  # 普通按键
+            val = self.str_edit.text().strip()
+            if not val:
+                return None
+            return {'type': 'str', 'value': val}
+        elif idx == 1:  # 特殊按键
+            return {'type': 'key', 'value': f'Key.{self.key_combo.currentText()}'}
+        elif idx == 2:  # 引爆技能
+            hotkey = self.detonate_hotkey_edit.text().strip()
+            name = self.detonate_name_edit.text().strip()
+            if not hotkey and not name:
+                return None  # 至少要有热键或名称
+            hotkey_cd = self.detonate_cd_check.isChecked()
+            # 指令为: 热键, 空, 空, 热键
+            cmd_list = [hotkey, '', '', hotkey] if hotkey else []
+            return {
+                'type': 'skill',
+                'name': name,
+                'hot_key': hotkey,
+                'command': cmd_list,
+                'concurrent': False,
+                'cd': 0 if hotkey_cd else self.detonate_cd_spin.value(),
+                'animation_time': self.skill_data.get('animation_time', 0.7),
+                'hotkey_cd_command_cast': hotkey_cd
+            }
+        elif idx == 3:  # 组合技能
+            name = self.combo_name_edit.text().strip()
+            hotkey = self.combo_hotkey_edit.text().strip()
+            cmd_text = self.combo_command_edit.text().strip()
+            if not name and not hotkey and not cmd_text:
+                return None  # 至少要有一个字段
+            cmd_list = [c.strip() for c in cmd_text.split(',') if c.strip()] if cmd_text else []
+            return {
+                'type': 'skill',
+                'name': name,
+                'hot_key': hotkey,
+                'command': cmd_list,
+                'concurrent': False,
+                'cd': 0,
+                'animation_time': self.skill_data.get('animation_time', 0.7),
+                'hotkey_cd_command_cast': True
+            }
+        else:  # 自定义技能
+            name = self.custom_name_edit.text().strip()
+            hotkey = self.custom_hotkey_edit.text().strip()
+            cmd_text = self.custom_command_edit.text().strip()
+            cmd_list = [c.strip() for c in cmd_text.split(',') if c.strip()] if cmd_text else []
+            hotkey_cd = self.custom_cd_check.isChecked()
+            return {
+                'type': 'skill',
+                'name': name,
+                'hot_key': hotkey,
+                'command': cmd_list,
+                'concurrent': self.skill_data.get('concurrent', False),
+                'cd': self.custom_cd_spin.value(),
+                'animation_time': self.skill_data.get('animation_time', 0.7),
+                'hotkey_cd_command_cast': hotkey_cd
+            }
+
+
+class RoleEditDialog(QDialog):
+    """角色编辑对话框"""
+    def __init__(self, parent=None, role_data=None, default_no=1):
+        super().__init__(parent)
+        self.role_data = role_data or {}
+        self.default_no = default_no
+        self.setWindowTitle("编辑角色" if role_data else "添加角色")
+        self.setMinimumWidth(650)
+        self.setMinimumHeight(500)
+        self.skill_rows = []
+        self.init_ui()
+    
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        form_layout = QFormLayout()
+        
+        # 角色编号
+        self.no_spin = NoScrollSpinBox()
+        self.no_spin.setRange(1, 100)
+        self.no_spin.setValue(self.role_data.get('no', self.default_no))
+        form_layout.addRow("角色编号:", self.no_spin)
+        
+        # 角色名称
         self.name_edit = QLineEdit(self.role_data.get('name', ''))
-        layout.addRow("角色名称:", self.name_edit)
+        form_layout.addRow("角色名称:", self.name_edit)
         
+        # 角色高度
         self.height_spin = NoScrollSpinBox()
         self.height_spin.setRange(100, 200)
         self.height_spin.setValue(self.role_data.get('height', 150))
-        layout.addRow("角色高度:", self.height_spin)
+        form_layout.addRow("角色高度:", self.height_spin)
         
+        # 疲劳值
+        fatigue_layout = QHBoxLayout()
         self.fatigue_all_spin = NoScrollSpinBox()
         self.fatigue_all_spin.setRange(0, 200)
         self.fatigue_all_spin.setValue(self.role_data.get('fatigue_all', 188))
-        layout.addRow("总疲劳值:", self.fatigue_all_spin)
-        
+        fatigue_layout.addWidget(QLabel("总疲劳:"))
+        fatigue_layout.addWidget(self.fatigue_all_spin)
         self.fatigue_reserved_spin = NoScrollSpinBox()
         self.fatigue_reserved_spin.setRange(0, 200)
         self.fatigue_reserved_spin.setValue(self.role_data.get('fatigue_reserved', 0))
-        layout.addRow("预留疲劳:", self.fatigue_reserved_spin)
+        fatigue_layout.addWidget(QLabel("预留:"))
+        fatigue_layout.addWidget(self.fatigue_reserved_spin)
+        fatigue_layout.addStretch()
+        form_layout.addRow("疲劳值:", fatigue_layout)
         
-        self.buff_check = QCheckBox()
+        # 需要Buff
+        self.buff_check = QCheckBox("启用")
         self.buff_check.setChecked(self.role_data.get('buff_effective', False))
-        layout.addRow("需要Buff:", self.buff_check)
+        form_layout.addRow("需要Buff:", self.buff_check)
         
-        self.skills_edit = QLineEdit(self.role_data.get('skills', 'q,e,r,w,s,d,f,g'))
-        layout.addRow("技能快捷键:", self.skills_edit)
+        layout.addLayout(form_layout)
         
+        # 技能列表
+        skill_group = QGroupBox("技能列表")
+        skill_group_layout = QVBoxLayout(skill_group)
+        
+        # 技能滚动区域
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setMaximumHeight(200)
+        
+        self.skill_container = QWidget()
+        self.skill_layout = QVBoxLayout(self.skill_container)
+        self.skill_layout.setSpacing(2)
+        self.skill_layout.addStretch()
+        scroll.setWidget(self.skill_container)
+        skill_group_layout.addWidget(scroll)
+        
+        # 加载已有技能
+        self._load_existing_skills()
+        
+        # 添加技能按钮
+        add_btn_layout = QHBoxLayout()
+        add_str_btn = QPushButton("+ 普通按键")
+        add_str_btn.clicked.connect(lambda: self._add_skill_row({'type': 'str'}))
+        add_btn_layout.addWidget(add_str_btn)
+        
+        add_key_btn = QPushButton("+ 特殊按键")
+        add_key_btn.clicked.connect(lambda: self._add_skill_row({'type': 'key'}))
+        add_btn_layout.addWidget(add_key_btn)
+        
+        add_detonate_btn = QPushButton("+ 引爆技能")
+        add_detonate_btn.clicked.connect(lambda: self._add_skill_row({'type': 'detonate'}))
+        add_btn_layout.addWidget(add_detonate_btn)
+        
+        add_combo_btn = QPushButton("+ 组合技能")
+        add_combo_btn.clicked.connect(lambda: self._add_skill_row({'type': 'combo'}))
+        add_btn_layout.addWidget(add_combo_btn)
+        
+        add_custom_btn = QPushButton("+ 自定义")
+        add_custom_btn.clicked.connect(lambda: self._add_skill_row({'type': 'custom'}))
+        add_btn_layout.addWidget(add_custom_btn)
+        
+        add_btn_layout.addStretch()
+        
+        # 保存技能按钮
+        save_skills_btn = QPushButton("💾 保存技能")
+        save_skills_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        save_skills_btn.clicked.connect(self._save_skills)
+        add_btn_layout.addWidget(save_skills_btn)
+        
+        skill_group_layout.addLayout(add_btn_layout)
+        
+        # 技能保存状态提示
+        self.skill_status_label = QLabel("")
+        self.skill_status_label.setStyleSheet("color: #666; font-size: 11px;")
+        skill_group_layout.addWidget(self.skill_status_label)
+        
+        layout.addWidget(skill_group)
+        
+        # 确定取消按钮
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(self.accept)
+        buttons.accepted.connect(self._confirm_save)
         buttons.rejected.connect(self.reject)
-        layout.addRow(buttons)
+        layout.addWidget(buttons)
+    
+    def _save_skills(self):
+        """保存技能列表"""
+        skills = self._get_skills()
+        skill_count = len(skills)
+        if skill_count > 0:
+            self.skill_status_label.setText(f"✓ 已保存 {skill_count} 个技能")
+            self.skill_status_label.setStyleSheet("color: #4CAF50; font-size: 11px;")
+        else:
+            self.skill_status_label.setText("⚠ 没有有效的技能")
+            self.skill_status_label.setStyleSheet("color: #ff9800; font-size: 11px;")
+    
+    def _confirm_save(self):
+        """确认保存"""
+        name = self.name_edit.text().strip()
+        if not name:
+            QMessageBox.warning(self, "提示", "请输入角色名称")
+            return
+        
+        reply = QMessageBox.question(
+            self, "确认保存",
+            f"确定要保存角色 \"{name}\" 吗？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes
+        )
+        if reply == QMessageBox.Yes:
+            self.accept()
+    
+    def _load_existing_skills(self):
+        """加载已有技能"""
+        skills = self.role_data.get('custom_priority_skills', [])
+        for s in skills:
+            if isinstance(s, str):
+                self._add_skill_row({'type': 'str', 'value': s})
+            elif isinstance(s, dict):
+                self._add_skill_row(s)
+    
+    def _add_skill_row(self, skill_data=None):
+        """添加一行技能"""
+        row = SkillRowWidget(skill_data, self)
+        row.deleted.connect(self._remove_skill_row)
+        self.skill_rows.append(row)
+        # 插入到 stretch 之前
+        self.skill_layout.insertWidget(self.skill_layout.count() - 1, row)
+    
+    def _remove_skill_row(self, row):
+        """删除技能行"""
+        if row in self.skill_rows:
+            self.skill_rows.remove(row)
+            self.skill_layout.removeWidget(row)
+            row.deleteLater()
+    
+    def _get_skills(self):
+        """获取所有技能数据"""
+        result = []
+        for row in self.skill_rows:
+            data = row.get_data()
+            if data:
+                result.append(data)
+        return result
     
     def get_data(self):
+        """获取完整的角色数据"""
         return {
             'name': self.name_edit.text(),
+            'no': self.no_spin.value(),
+            'buffs': self.role_data.get('buffs', [[]]),
+            'candidate_hotkeys': self.role_data.get('candidate_hotkeys', ['x']),
+            'custom_priority_skills': self._get_skills(),
             'height': self.height_spin.value(),
             'fatigue_all': self.fatigue_all_spin.value(),
             'fatigue_reserved': self.fatigue_reserved_spin.value(),
+            'attack_center_x': self.role_data.get('attack_center_x', 0),
+            'attack_range_x': self.role_data.get('attack_range_x', 0),
+            'attack_range_y': self.role_data.get('attack_range_y', 0),
             'buff_effective': self.buff_check.isChecked(),
-            'skills': self.skills_edit.text()
+            'powerful_skills': self.role_data.get('powerful_skills', []),
+            'white_map_level': self.role_data.get('white_map_level', 2)
         }
 
 
@@ -457,7 +913,8 @@ class MainWindow(QMainWindow):
         self.is_paused = False
         self.role_config = {'account1': [], 'account2': []}
         self.gui_config = {}
-        self.auto_sync_role_config()  # 自动同步角色配置（只同步新增/删除）
+        # 不再自动同步，只在用户点击"从代码强制同步"时才同步
+        # self.auto_sync_role_config()
         self.load_role_config()
         self.load_gui_config()
         self.init_ui()
@@ -1227,8 +1684,28 @@ DNF_MAIL_RECEIVER={receiver}
         self._progress_dialog.setMinimumDuration(0)
         self._progress_dialog.setCancelButton(None)  # 不允许取消
         self._progress_dialog.setAutoClose(True)
+        self._progress_dialog.setMinimumWidth(300)
+        # 设置进度条样式，确保颜色显示
+        self._progress_dialog.setStyleSheet("""
+            QProgressDialog {
+                background-color: white;
+            }
+            QProgressBar {
+                border: 1px solid #bbb;
+                border-radius: 5px;
+                text-align: center;
+                height: 22px;
+                background-color: #e0e0e0;
+            }
+            QProgressBar::chunk {
+                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #4CAF50, stop:1 #81C784);
+                border-radius: 4px;
+            }
+        """)
         self._progress_dialog.setValue(0)
         self._progress_dialog.show()
+        QApplication.processEvents()  # 确保进度条立即显示
         
         # 创建预加载线程
         self._preload_worker = PreloadWorker()
@@ -1240,6 +1717,7 @@ DNF_MAIL_RECEIVER={receiver}
         """预加载进度更新"""
         if hasattr(self, '_progress_dialog') and self._progress_dialog:
             self._progress_dialog.setValue(percent)
+            QApplication.processEvents()  # 强制刷新UI
     
     def _on_preload_finished(self, success, message):
         """预加载完成回调"""
@@ -1509,31 +1987,47 @@ DNF_MAIL_RECEIVER={receiver}
             for s in skills:
                 if isinstance(s, str):
                     # 兼容旧格式（直接是字符串）
-                    skill_display.append(f"普通按键:[{s}]")
+                    skill_display.append(f"普通按键[{s}]")
                 elif isinstance(s, dict):
                     skill_type = s.get('type', '')
                     if skill_type == 'str':
                         # 普通按键
-                        skill_display.append(f"普通按键:[{s.get('value', '')}]")
+                        skill_display.append(f"普通按键[{s.get('value', '')}]")
                     elif skill_type == 'key':
                         # 特殊按键
                         key_val = s.get('value', '').replace('Key.', '')
-                        skill_display.append(f"特殊按键:[{key_val}]")
+                        skill_display.append(f"特殊按键[{key_val}]")
                     elif skill_type == 'skill':
-                        # 技能对象
-                        hot_key = s.get('hot_key', '') or s.get('name', '')
-                        skill_display.append(f"对象技能:[{hot_key}]")
-            self.role_table.setItem(i, 6, QTableWidgetItem(' '.join(skill_display)))
+                        # 判断是引爆技能、组合技能还是自定义技能
+                        cmd = s.get('command', [])
+                        hotkey_cd = s.get('hotkey_cd_command_cast', False)
+                        is_detonate = len(cmd) == 4 and cmd[1] == '' and cmd[2] == ''
+                        key = s.get('hot_key', '') or s.get('name', '')
+                        if is_detonate:
+                            skill_display.append(f"引爆技能[{key}]")
+                        elif hotkey_cd:
+                            skill_display.append(f"组合技能[{key}]")
+                        else:
+                            skill_display.append(f"自定义[{key}]")
+                    else:
+                        # 未知类型，展示为自定义
+                        key = s.get('hot_key', '') or s.get('name', '') or s.get('value', '')
+                        skill_display.append(f"自定义[{key}]")
+            self.role_table.setItem(i, 6, QTableWidgetItem(' || '.join(skill_display)))
     
     def add_role(self):
         """添加角色"""
-        dialog = RoleEditDialog(self)
+        key = self.get_current_account_key()
+        # 计算默认编号：已有角色中最大编号 + 1
+        existing_nos = [r.get('no', 0) for r in self.role_config[key]]
+        default_no = max(existing_nos) + 1 if existing_nos else 1
+        dialog = RoleEditDialog(self, default_no=default_no)
         if dialog.exec_() == QDialog.Accepted:
-            key = self.get_current_account_key()
-            self.role_config[key].append(dialog.get_data())
+            role_data = dialog.get_data()
+            self.role_config[key].append(role_data)
             self.save_role_config()
             self.refresh_role_table()
-            self.log(f"已添加角色: {dialog.get_data()['name']}")
+            self.log(f"已添加角色: {role_data['name']}")
     
     def edit_role(self):
         """编辑角色"""
@@ -1545,10 +2039,13 @@ DNF_MAIL_RECEIVER={receiver}
         role_data = self.role_config[key][row]
         dialog = RoleEditDialog(self, role_data)
         if dialog.exec_() == QDialog.Accepted:
-            self.role_config[key][row] = dialog.get_data()
+            new_data = dialog.get_data()
+            # 保留原有编号
+            new_data['no'] = row + 1
+            self.role_config[key][row] = new_data
             self.save_role_config()
             self.refresh_role_table()
-            self.log(f"已更新角色: {dialog.get_data()['name']}")
+            self.log(f"已更新角色: {new_data['name']}")
     
     def delete_role(self):
         """删除角色"""
