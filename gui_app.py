@@ -2444,11 +2444,13 @@ DNF_MAIL_RECEIVER={receiver}
         
         # 根据日志类型设置颜色
         if 'error' in msg_lower or '错误' in message or '失败' in message:
-            color = '#e53935'  # 红色 - 错误
+            color = '#8B0000'  # 深红色 - 错误
         elif 'warning' in msg_lower or '警告' in message or 'warn' in msg_lower:
             color = '#fb8c00'  # 橙色 - 警告
+        elif 'info' in msg_lower:
+            color = '#228B22'  # 绿色 - INFO
         elif '完成' in message or '成功' in message or '已启动' in message or '已加载' in message:
-            color = '#43a047'  # 绿色 - 成功
+            color = '#228B22'  # 绿色 - 成功
         elif '停止' in message or '暂停' in message:
             color = '#1e88e5'  # 蓝色 - 状态变化
         else:
@@ -2899,13 +2901,15 @@ DNF_MAIL_RECEIVER={receiver}
         
         # 根据日志类型设置颜色
         if 'error' in msg_lower or '错误' in message or '失败' in message:
-            color = '#e53935'  # 红色 - 错误
+            color = '#8B0000'  # 深红色 - 错误
         elif 'warning' in msg_lower or '警告' in message or 'warn' in msg_lower:
             color = '#fb8c00'  # 橙色 - 警告
+        elif 'info' in msg_lower:
+            color = '#228B22'  # 绿色 - INFO
         elif '完成' in message or '成功' in message:
-            color = '#43a047'  # 绿色 - 成功
-        elif 'info' in msg_lower or 'debug' in msg_lower:
-            color = '#333333'  # 默认深灰色
+            color = '#228B22'  # 绿色 - 成功
+        elif 'debug' in msg_lower:
+            color = '#666666'  # 灰色 - DEBUG
         else:
             color = '#333333'  # 默认深灰色
         
