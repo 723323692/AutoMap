@@ -1,7 +1,7 @@
 {
   "game_mode": 3,
   "account_code": 2,
-  "first_role": 34,
+  "first_role": 35,
   "last_role": 37,
   "skip_role_enabled": true,
   "skip_role_list": "5,16",
@@ -26,5 +26,5 @@
   "schedule_hour": 17,
   "schedule_minute": 47,
   "schedule_mode": 1,
-  "current_tab": 0
+  "current_tab": 2
 }

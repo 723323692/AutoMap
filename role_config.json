@@ -2750,74 +2750,11 @@
     },
     {
       "name": "剑魂",
-      "no": 2,
-      "buffs": [
-        [
-          "Key.right",
-          "Key.right",
-          "Key.space"
-        ]
-      ],
-      "candidate_hotkeys": [
-        "x"
-      ],
-      "custom_priority_skills": [
-        {
-          "type": "skill",
-          "name": "拔刀",
-          "hot_key": "q",
-          "command": [
-            "q",
-            "q"
-          ],
-          "concurrent": false,
-          "cd": 0,
-          "animation_time": 0.7,
-          "hotkey_cd_command_cast": true
-        },
-        {
-          "type": "str",
-          "value": "g"
-        },
-        {
-          "type": "str",
-          "value": "e"
-        },
-        {
-          "type": "str",
-          "value": "f"
-        },
-        {
-          "type": "str",
-          "value": "r"
-        },
-        {
-          "type": "str",
-          "value": "d"
-        },
-        {
-          "type": "str",
-          "value": "w"
-        }
-      ],
       "height": 155,
       "fatigue_all": 188,
       "fatigue_reserved": 0,
-      "attack_center_x": 0,
-      "attack_range_x": 0,
-      "attack_range_y": 0,
       "buff_effective": false,
-      "powerful_skills": [
-        {
-          "type": "str",
-          "value": "d"
-        },
-        {
-          "type": "str",
-          "value": "g"
-        }
-      ],
-      "white_map_level": 2
+      "skills": "q,e,r,w,s,d,f,g"
     },
     {
       "name": "奶妈",

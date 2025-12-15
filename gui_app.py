@@ -897,24 +897,25 @@ class MainWindow(QMainWindow):
         self.role_table.setColumnCount(7)
         self.role_table.setHorizontalHeaderLabels(["编号", "角色名称", "高度", "总疲劳", "预留疲劳", "需要Buff", "技能"])
         self.role_table.verticalHeader().setVisible(False)  # 隐藏左侧行号
-        # 设置列宽比例：技能占30%，其他6列平分剩余70%
+        # 启用水平滚动条
+        self.role_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        # 设置列宽
         header = self.role_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)  # 编号
-        header.setSectionResizeMode(1, QHeaderView.Stretch)  # 角色名称
-        header.setSectionResizeMode(2, QHeaderView.Stretch)  # 高度
-        header.setSectionResizeMode(3, QHeaderView.Stretch)  # 总疲劳
-        header.setSectionResizeMode(4, QHeaderView.Stretch)  # 预留疲劳
-        header.setSectionResizeMode(5, QHeaderView.Stretch)  # 需要Buff
-        header.setSectionResizeMode(6, QHeaderView.Stretch)  # 技能
+        header.setSectionResizeMode(0, QHeaderView.Fixed)  # 编号
+        header.setSectionResizeMode(1, QHeaderView.Fixed)  # 角色名称
+        header.setSectionResizeMode(2, QHeaderView.Fixed)  # 高度
+        header.setSectionResizeMode(3, QHeaderView.Fixed)  # 总疲劳
+        header.setSectionResizeMode(4, QHeaderView.Fixed)  # 预留疲劳
+        header.setSectionResizeMode(5, QHeaderView.Fixed)  # 需要Buff
+        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # 技能列自适应内容
         header.setStretchLastSection(False)
-        # 设置各列拉伸因子
-        header.resizeSection(0, 60)   # 编号 ~10%
-        header.resizeSection(1, 90)   # 角色名称 ~15%
-        header.resizeSection(2, 55)   # 高度 ~9%
-        header.resizeSection(3, 65)   # 总疲劳 ~11%
-        header.resizeSection(4, 75)   # 预留疲劳 ~12%
-        header.resizeSection(5, 75)   # 需要Buff ~12%
-        header.resizeSection(6, 180)  # 技能 ~30%
+        # 设置固定列宽
+        header.resizeSection(0, 50)   # 编号
+        header.resizeSection(1, 80)   # 角色名称
+        header.resizeSection(2, 50)   # 高度
+        header.resizeSection(3, 60)   # 总疲劳
+        header.resizeSection(4, 70)   # 预留疲劳
+        header.resizeSection(5, 70)   # 需要Buff
         self.role_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.role_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.role_table.doubleClicked.connect(self.edit_role)
@@ -1502,18 +1503,27 @@ DNF_MAIL_RECEIVER={receiver}
             self.role_table.setItem(i, 3, QTableWidgetItem(str(role.get('fatigue_all', 188))))
             self.role_table.setItem(i, 4, QTableWidgetItem(str(role.get('fatigue_reserved', 0))))
             self.role_table.setItem(i, 5, QTableWidgetItem("是" if role.get('buff_effective') else "否"))
-            # 提取技能快捷键
+            # 提取技能信息
             skills = role.get('custom_priority_skills', [])
-            skill_keys = []
+            skill_display = []
             for s in skills:
-                if s.get('type') == 'str':
-                    skill_keys.append(s.get('value', ''))
-                elif s.get('type') == 'key':
-                    key_val = s.get('value', '').replace('Key.', '')
-                    skill_keys.append(key_val)
-                elif s.get('type') == 'skill':
-                    skill_keys.append(s.get('hot_key', '') or s.get('name', ''))
-            self.role_table.setItem(i, 6, QTableWidgetItem(','.join(skill_keys)))
+                if isinstance(s, str):
+                    # 兼容旧格式（直接是字符串）
+                    skill_display.append(f"普通按键:[{s}]")
+                elif isinstance(s, dict):
+                    skill_type = s.get('type', '')
+                    if skill_type == 'str':
+                        # 普通按键
+                        skill_display.append(f"普通按键:[{s.get('value', '')}]")
+                    elif skill_type == 'key':
+                        # 特殊按键
+                        key_val = s.get('value', '').replace('Key.', '')
+                        skill_display.append(f"特殊按键:[{key_val}]")
+                    elif skill_type == 'skill':
+                        # 技能对象
+                        hot_key = s.get('hot_key', '') or s.get('name', '')
+                        skill_display.append(f"对象技能:[{hot_key}]")
+            self.role_table.setItem(i, 6, QTableWidgetItem(' '.join(skill_display)))
     
     def add_role(self):
         """添加角色"""
@@ -1943,7 +1953,8 @@ def main():
             border: 1px solid rgba(176, 196, 222, 180);
             gridline-color: #d0d0d0;
             color: #333333;
-            selection-background-color: rgba(204, 229, 255, 200);
+            selection-background-color: rgba(255, 235, 205, 220);
+            selection-color: #333333;
         }
         QHeaderView::section {
             background-color: rgba(232, 240, 248, 200);
