@@ -23,47 +23,50 @@ x2, y2 = 648, 593
 
 # skill_height = int((y2 - y1) / 2)
 # skill_width = int((x2 - x1) / 7)
-# skill_height = 30
-# skill_width = 30
-# skill_dict = {
-#     "q": (x1, y1),
-#     "w": (x1 + (skill_width+1), y1),
-#     "e": (x1 + (skill_width+1) * 2, y1),
-#     "r": (x1 + (skill_width+1) * 3, y1),
-#     "t": (x1 + (skill_width+1) * 4, y1),
-#     "v": (x1 + (skill_width+1) * 5, y1),
-#     # "CTRL": (x1 + skill_width * 6, y1),
-#     Key.ctrl_l: (x1 + (skill_width+1) * 6, y1),
-#
-#     "a": (x1, y1 + skill_height+1),
-#     "s": (x1 + (skill_width+1), y1 + skill_height+1),
-#     "d": (x1 + (skill_width+1) * 2, y1 + skill_height+1),
-#     "f": (x1 + (skill_width+1) * 3, y1 + skill_height+1),
-#     "g": (x1 + (skill_width+1) * 4, y1 + skill_height+1),
-#     # "TAB": (x1 + (skill_width+1) * 5, y1 + skill_height),
-#     Key.tab: (x1 + (skill_width+1) * 5, y1 + skill_height+1),
-#     "h": (x1 + (skill_width+1) * 6, y1 + skill_height+1)
-# }
 skill_height = 28
 skill_width = 28
 
-skill_dict = {
-    "q": (x1, y1),
-    "w": (x1 + skill_width, y1),
-    "e": (x1 + skill_width * 2, y1),
-    "r": (x1 + skill_width * 3, y1),
-    "t": (x1 + skill_width * 4, y1),
-    Key.ctrl_l: (x1 + skill_width * 5, y1),
-    '': (x1 + skill_width * 6, y1),
+# 技能栏按键列表（可以通过GUI修改，对应游戏内的技能栏按键）
+# 14个槽位：上排7个 + 下排7个
+ACTUAL_KEYS = ["y", "w", "e", "r", "t", "ctrl_l", "", "a", "s", "d", "f", "g", "h", "alt_l"]
 
-    "a": (x1, y1 + skill_height),
-    "s": (x1 + skill_width, y1 + skill_height),
-    "d": (x1 + skill_width * 3, y1 + skill_height),
-    "f": (x1 + skill_width * 3, y1 + skill_height),
-    "g": (x1 + skill_width * 4, y1 + skill_height),
-    "h": (x1 + skill_width * 5, y1 + skill_height),
-    Key.alt_l: (x1 + skill_width * 6, y1 + skill_height)
-}
+def _get_actual_keys():
+    """动态获取实际按键列表"""
+    import sys
+    if 'dnf.stronger.skill_util' in sys.modules:
+        mod = sys.modules['dnf.stronger.skill_util']
+        return getattr(mod, 'ACTUAL_KEYS', ACTUAL_KEYS)
+    return ACTUAL_KEYS
+
+# 根据实际按键构建 skill_dict
+def _build_skill_dict():
+    """根据 ACTUAL_KEYS 构建 skill_dict"""
+    keys = _get_actual_keys()
+    result = {}
+    for i, key in enumerate(keys):
+        if i < 7:
+            pos = (x1 + skill_width * i, y1)
+        else:
+            pos = (x1 + skill_width * (i - 7), y1 + skill_height)
+        # 转换特殊按键
+        if key == 'ctrl_l':
+            result[Key.ctrl_l] = pos
+        elif key == 'alt_l':
+            result[Key.alt_l] = pos
+        elif key == 'tab':
+            result[Key.tab] = pos
+        elif key == 'space':
+            result[Key.space] = pos
+        else:
+            result[key] = pos
+    return result
+
+def get_skill_dict():
+    """动态获取 skill_dict（每次调用都重新构建）"""
+    return _build_skill_dict()
+
+# 初始化 skill_dict（兼容旧代码）
+skill_dict = _build_skill_dict()
 
 
 # 计算给定图像 img 中亮度高于阈值127的像素的比例
@@ -151,8 +154,10 @@ def skill_ready_warm_colors(skill_name, img):
     # 都>0.4 都小于0.3
     if skill_name == "x":
         return True
-    # x, y = skill_dict[skill_name][0], skill_dict[skill_name][1]
-    keys_list = list(skill_dict.keys())
+    current_skill_dict = get_skill_dict()
+    keys_list = list(current_skill_dict.keys())
+    if skill_name not in keys_list:
+        return False
     index = keys_list.index(skill_name)
     x = 434 + (28 + 3) * (index % 7)
     y = 534 + (28 + 3) * (index // 7)
@@ -193,8 +198,10 @@ def suggest_skill(role: RoleConfig, img0):
 def check_one_skill_cd(skill_key, img, skill_images):
     if skill_key == "x":
         return True
-    # x, y = skill_dict[skill_name][0], skill_dict[skill_name][1]
-    keys_list = list(skill_dict.keys())
+    current_skill_dict = get_skill_dict()
+    keys_list = list(current_skill_dict.keys())
+    if skill_key not in keys_list:
+        return False
     index = keys_list.index(skill_key)
     x = 434 + (28 + 3) * (index % 7)
     y = 534 + (28 + 3) * (index // 7)
@@ -341,8 +348,9 @@ def get_skill_initial_images(full_image):
     :return:
     """
     skill_images = {}
+    current_skill_dict = get_skill_dict()
     # 遍历技能快捷栏
-    for index, key in enumerate(skill_dict.keys()):
+    for index, key in enumerate(current_skill_dict.keys()):
         _x = 434 + (28 + 3) * (index % 7)
         _y = 534 + (28 + 3) * (index // 7)
         # print()

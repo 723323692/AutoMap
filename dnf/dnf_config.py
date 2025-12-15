@@ -19,11 +19,11 @@ numpad_7 = KeyCode.from_vk(103)
 direct_dic = {"UP": Key.up, "DOWN": Key.down, "LEFT": Key.left, "RIGHT": Key.right}
 
 # 游戏按键定义 再次挑战
-key_try_again = KeyCode.from_vk(101)
+key_try_again = numpad_0
 # 游戏按键定义 返回城镇
 key_return_to_town = Key.f12
 # 游戏按键定义 移动物品
-Key_collect_loot = numpad_2
+Key_collect_loot = Key.ctrl_r
 # 游戏按键定义 移动角色
 Key_collect_role = numpad_7
 

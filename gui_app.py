@@ -425,13 +425,13 @@ class SkillRowWidget(QWidget):
         self.type_combo.currentIndexChanged.connect(self._on_type_changed)
         layout.addWidget(self.type_combo)
         
-        # 普通按键输入
+        # 普通按键输入（从技能栏配置的按键中选择）
         self.str_label = QLabel("按键:")
         layout.addWidget(self.str_label)
-        self.str_edit = QLineEdit()
-        self.str_edit.setPlaceholderText("q")
-        self.str_edit.setFixedWidth(50)
-        layout.addWidget(self.str_edit)
+        self.str_combo = NoScrollComboBox()
+        self._populate_skill_keys(self.str_combo)
+        self.str_combo.setFixedWidth(80)
+        layout.addWidget(self.str_combo)
         
         # 特殊按键选择
         self.key_label = QLabel("按键:")
@@ -542,6 +542,18 @@ class SkillRowWidget(QWidget):
         self._load_data()
         self._on_type_changed()
     
+    def _populate_skill_keys(self, combo):
+        """从技能栏配置获取可用的按键列表"""
+        try:
+            from dnf.stronger.skill_util import ACTUAL_KEYS
+            keys = [k for k in ACTUAL_KEYS if k]  # 过滤空值
+            combo.addItems(keys)
+        except:
+            # 默认按键
+            combo.addItems(['q', 'w', 'e', 'r', 't', 'a', 's', 'd', 'f', 'g', 'h'])
+        combo.setMaxVisibleItems(12)
+        combo.setStyleSheet("QComboBox { combobox-popup: 0; }")
+    
     def _load_data(self):
         """加载技能数据"""
         if not self.skill_data:
@@ -550,7 +562,10 @@ class SkillRowWidget(QWidget):
         skill_type = self.skill_data.get('type', 'str')
         if skill_type == 'str':
             self.type_combo.setCurrentIndex(0)
-            self.str_edit.setText(self.skill_data.get('value', ''))
+            val = self.skill_data.get('value', '')
+            idx = self.str_combo.findText(val)
+            if idx >= 0:
+                self.str_combo.setCurrentIndex(idx)
         elif skill_type == 'key':
             self.type_combo.setCurrentIndex(1)
             key_val = self.skill_data.get('value', '').replace('Key.', '')
@@ -599,7 +614,7 @@ class SkillRowWidget(QWidget):
         idx = self.type_combo.currentIndex()
         # 普通按键
         self.str_label.setVisible(idx == 0)
-        self.str_edit.setVisible(idx == 0)
+        self.str_combo.setVisible(idx == 0)
         # 特殊按键
         self.key_label.setVisible(idx == 1)
         self.key_combo.setVisible(idx == 1)
@@ -648,7 +663,7 @@ class SkillRowWidget(QWidget):
         """获取技能数据"""
         idx = self.type_combo.currentIndex()
         if idx == 0:  # 普通按键
-            val = self.str_edit.text().strip()
+            val = self.str_combo.currentText().strip()
             if not val:
                 return None
             return {'type': 'str', 'value': val}
@@ -964,6 +979,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self._create_abyss_tab(), "深渊模式")
         self.tabs.addTab(self._create_role_tab(), "角色列表")
         self.tabs.addTab(self._create_key_config_tab(), "按键配置")
+        self.tabs.addTab(self._create_skill_bar_tab(), "技能栏配置")
         self.tabs.addTab(self._create_settings_tab(), "设置")
         
         # 日志区域
@@ -1742,6 +1758,279 @@ class MainWindow(QMainWindow):
             self.key_pause_script_combo.setCurrentText("Delete")
             self.key_stop_script_combo.setCurrentText("End")
             self.log("按键配置已恢复默认值")
+    
+    def _create_skill_bar_tab(self):
+        """创建技能栏配置选项卡"""
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setSpacing(12)
+        layout.setContentsMargins(10, 10, 10, 10)
+        
+        label_width = 50
+        combo_width = 80
+        
+        # 技能栏第一行
+        row1_group = QGroupBox("技能栏第一行 (上排)")
+        row1_layout = QVBoxLayout(row1_group)
+        row1_layout.setSpacing(8)
+        row1_layout.setContentsMargins(10, 10, 10, 10)
+        
+        row1 = QHBoxLayout()
+        # 槽位1
+        row1.addWidget(QLabel("槽位1:"))
+        self.skill_slot_1 = QLineEdit("q")
+        self.skill_slot_1.setFixedWidth(combo_width)
+        row1.addWidget(self.skill_slot_1)
+        row1.addSpacing(15)
+        # 槽位2
+        row1.addWidget(QLabel("槽位2:"))
+        self.skill_slot_2 = QLineEdit("w")
+        self.skill_slot_2.setFixedWidth(combo_width)
+        row1.addWidget(self.skill_slot_2)
+        row1.addSpacing(15)
+        # 槽位3
+        row1.addWidget(QLabel("槽位3:"))
+        self.skill_slot_3 = QLineEdit("e")
+        self.skill_slot_3.setFixedWidth(combo_width)
+        row1.addWidget(self.skill_slot_3)
+        row1.addSpacing(15)
+        # 槽位4
+        row1.addWidget(QLabel("槽位4:"))
+        self.skill_slot_4 = QLineEdit("r")
+        self.skill_slot_4.setFixedWidth(combo_width)
+        row1.addWidget(self.skill_slot_4)
+        row1.addSpacing(15)
+        # 槽位5
+        row1.addWidget(QLabel("槽位5:"))
+        self.skill_slot_5 = QLineEdit("t")
+        self.skill_slot_5.setFixedWidth(combo_width)
+        row1.addWidget(self.skill_slot_5)
+        row1.addSpacing(15)
+        # 槽位6
+        row1.addWidget(QLabel("槽位6:"))
+        self.skill_slot_6 = QLineEdit("ctrl_l")
+        self.skill_slot_6.setFixedWidth(combo_width)
+        row1.addWidget(self.skill_slot_6)
+        row1.addSpacing(15)
+        # 槽位7
+        row1.addWidget(QLabel("槽位7:"))
+        self.skill_slot_7 = QLineEdit("")
+        self.skill_slot_7.setFixedWidth(combo_width)
+        self.skill_slot_7.setPlaceholderText("空")
+        row1.addWidget(self.skill_slot_7)
+        row1.addStretch()
+        row1_layout.addLayout(row1)
+        layout.addWidget(row1_group)
+        
+        # 技能栏第二行
+        row2_group = QGroupBox("技能栏第二行 (下排)")
+        row2_layout = QVBoxLayout(row2_group)
+        row2_layout.setSpacing(8)
+        row2_layout.setContentsMargins(10, 10, 10, 10)
+        
+        row2 = QHBoxLayout()
+        # 槽位8
+        row2.addWidget(QLabel("槽位1:"))
+        self.skill_slot_8 = QLineEdit("a")
+        self.skill_slot_8.setFixedWidth(combo_width)
+        row2.addWidget(self.skill_slot_8)
+        row2.addSpacing(15)
+        # 槽位9
+        row2.addWidget(QLabel("槽位2:"))
+        self.skill_slot_9 = QLineEdit("s")
+        self.skill_slot_9.setFixedWidth(combo_width)
+        row2.addWidget(self.skill_slot_9)
+        row2.addSpacing(15)
+        # 槽位10
+        row2.addWidget(QLabel("槽位3:"))
+        self.skill_slot_10 = QLineEdit("d")
+        self.skill_slot_10.setFixedWidth(combo_width)
+        row2.addWidget(self.skill_slot_10)
+        row2.addSpacing(15)
+        # 槽位11
+        row2.addWidget(QLabel("槽位4:"))
+        self.skill_slot_11 = QLineEdit("f")
+        self.skill_slot_11.setFixedWidth(combo_width)
+        row2.addWidget(self.skill_slot_11)
+        row2.addSpacing(15)
+        # 槽位12
+        row2.addWidget(QLabel("槽位5:"))
+        self.skill_slot_12 = QLineEdit("g")
+        self.skill_slot_12.setFixedWidth(combo_width)
+        row2.addWidget(self.skill_slot_12)
+        row2.addSpacing(15)
+        # 槽位13
+        row2.addWidget(QLabel("槽位6:"))
+        self.skill_slot_13 = QLineEdit("h")
+        self.skill_slot_13.setFixedWidth(combo_width)
+        row2.addWidget(self.skill_slot_13)
+        row2.addSpacing(15)
+        # 槽位14
+        row2.addWidget(QLabel("槽位7:"))
+        self.skill_slot_14 = QLineEdit("alt_l")
+        self.skill_slot_14.setFixedWidth(combo_width)
+        row2.addWidget(self.skill_slot_14)
+        row2.addStretch()
+        row2_layout.addLayout(row2)
+        layout.addWidget(row2_group)
+        
+        # 按钮区域
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(15)
+        
+        load_skill_btn = QPushButton("从配置文件加载")
+        load_skill_btn.setFixedSize(130, 35)
+        load_skill_btn.clicked.connect(self.load_skill_bar_config)
+        btn_layout.addWidget(load_skill_btn)
+        
+        save_skill_btn = QPushButton("保存技能栏配置")
+        save_skill_btn.setFixedSize(130, 35)
+        save_skill_btn.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; font-weight: bold; }")
+        save_skill_btn.clicked.connect(self.save_skill_bar_config)
+        btn_layout.addWidget(save_skill_btn)
+        
+        reset_skill_btn = QPushButton("恢复默认配置")
+        reset_skill_btn.setFixedSize(130, 35)
+        reset_skill_btn.clicked.connect(self.reset_skill_bar_config)
+        btn_layout.addWidget(reset_skill_btn)
+        
+        btn_layout.addStretch()
+        layout.addLayout(btn_layout)
+        
+        # 说明
+        note_group = QGroupBox("说明")
+        note_layout = QVBoxLayout(note_group)
+        note_layout.setSpacing(4)
+        note_layout.setContentsMargins(8, 8, 8, 8)
+        note_layout.addWidget(QLabel("• 技能栏按键需要与游戏内技能栏设置保持一致"))
+        note_layout.addWidget(QLabel("• 普通按键直接输入字母，如: q, w, e, r"))
+        note_layout.addWidget(QLabel("• 特殊按键使用: ctrl_l(左Ctrl), alt_l(左Alt), tab, space 等"))
+        note_layout.addWidget(QLabel("• 空槽位留空即可"))
+        note_layout.addWidget(QLabel("• 配置保存在 dnf/stronger/skill_util.py 文件中"))
+        layout.addWidget(note_group)
+        
+        layout.addStretch()
+        
+        # 延迟加载配置
+        QTimer.singleShot(150, self.load_skill_bar_config)
+        
+        scroll.setWidget(widget)
+        return scroll
+    
+    def load_skill_bar_config(self):
+        """从 skill_util.py 加载技能栏配置"""
+        try:
+            config_path = os.path.join(PROJECT_ROOT, 'dnf', 'stronger', 'skill_util.py')
+            with open(config_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            import re
+            
+            # 解析 ACTUAL_KEYS 列表
+            match = re.search(r'ACTUAL_KEYS\s*=\s*\[([^\]]+)\]', content)
+            if match:
+                list_content = match.group(1)
+                # 解析列表中的每个元素
+                keys = []
+                for item in list_content.split(','):
+                    item = item.strip().strip('"').strip("'")
+                    keys.append(item)
+                
+                # 映射到输入框
+                slot_inputs = [
+                    self.skill_slot_1, self.skill_slot_2, self.skill_slot_3, self.skill_slot_4,
+                    self.skill_slot_5, self.skill_slot_6, self.skill_slot_7,
+                    self.skill_slot_8, self.skill_slot_9, self.skill_slot_10, self.skill_slot_11,
+                    self.skill_slot_12, self.skill_slot_13, self.skill_slot_14
+                ]
+                
+                for i, key in enumerate(keys):
+                    if i < len(slot_inputs):
+                        slot_inputs[i].setText(key)
+            
+            self.log("技能栏配置已加载")
+        except Exception as e:
+            self.log(f"加载技能栏配置失败: {e}")
+    
+    def save_skill_bar_config(self):
+        """保存技能栏配置到 skill_util.py"""
+        try:
+            config_path = os.path.join(PROJECT_ROOT, 'dnf', 'stronger', 'skill_util.py')
+            with open(config_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # 获取所有槽位的值
+            slots = [
+                self.skill_slot_1.text().strip(),
+                self.skill_slot_2.text().strip(),
+                self.skill_slot_3.text().strip(),
+                self.skill_slot_4.text().strip(),
+                self.skill_slot_5.text().strip(),
+                self.skill_slot_6.text().strip(),
+                self.skill_slot_7.text().strip(),
+                self.skill_slot_8.text().strip(),
+                self.skill_slot_9.text().strip(),
+                self.skill_slot_10.text().strip(),
+                self.skill_slot_11.text().strip(),
+                self.skill_slot_12.text().strip(),
+                self.skill_slot_13.text().strip(),
+                self.skill_slot_14.text().strip(),
+            ]
+            
+            import re
+            
+            # 更新 ACTUAL_KEYS 列表
+            def format_key_for_list(k):
+                if not k:
+                    return '""'
+                else:
+                    return f'"{k}"'
+            
+            new_actual_keys = f'ACTUAL_KEYS = [{", ".join([format_key_for_list(s) for s in slots])}]'
+            content = re.sub(
+                r'ACTUAL_KEYS\s*=\s*\[[^\]]+\]',
+                new_actual_keys,
+                content,
+                count=1
+            )
+            
+            with open(config_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            
+            # 重新加载模块
+            import importlib
+            if 'dnf.stronger.skill_util' in sys.modules:
+                importlib.reload(sys.modules['dnf.stronger.skill_util'])
+            
+            self.log("技能栏配置已保存并生效")
+            QMessageBox.information(self, "成功", "技能栏配置已保存并立即生效！")
+        except Exception as e:
+            self.log(f"保存技能栏配置失败: {e}")
+            QMessageBox.critical(self, "错误", f"保存失败: {e}")
+    
+    def reset_skill_bar_config(self):
+        """恢复默认技能栏配置"""
+        reply = QMessageBox.question(self, "确认", "确定要恢复默认技能栏配置吗？",
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.skill_slot_1.setText("q")
+            self.skill_slot_2.setText("w")
+            self.skill_slot_3.setText("e")
+            self.skill_slot_4.setText("r")
+            self.skill_slot_5.setText("t")
+            self.skill_slot_6.setText("ctrl_l")
+            self.skill_slot_7.setText("")
+            self.skill_slot_8.setText("a")
+            self.skill_slot_9.setText("s")
+            self.skill_slot_10.setText("d")
+            self.skill_slot_11.setText("f")
+            self.skill_slot_12.setText("g")
+            self.skill_slot_13.setText("h")
+            self.skill_slot_14.setText("alt_l")
+            self.log("技能栏配置已恢复默认值")
     
     def _create_settings_tab(self):
         """创建设置选项卡"""

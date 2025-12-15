@@ -1,8 +1,8 @@
 {
   "game_mode": 3,
   "account_code": 2,
-  "first_role": 35,
-  "last_role": 37,
+  "first_role": 2,
+  "last_role": 2,
   "skip_role_enabled": true,
   "skip_role_list": "5,16",
   "stronger_uniform": false,
@@ -10,7 +10,7 @@
   "buy_tank": 0,
   "buy_bell": 0,
   "buy_ssm": 2,
-  "buy_catalyst": 5,
+  "buy_catalyst": 7,
   "abyss_account_code": 1,
   "abyss_first": 5,
   "abyss_last": 5,
@@ -26,5 +26,5 @@
   "schedule_hour": 17,
   "schedule_minute": 47,
   "schedule_mode": 1,
-  "current_tab": 2
+  "current_tab": 3
 }
