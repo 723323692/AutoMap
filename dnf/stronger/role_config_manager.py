@@ -186,7 +186,15 @@ def load_role_configs(account_code: int, filepath: str = None) -> List[RoleConfi
 
 def export_from_role_list(account_code: int = 1):
     """从role_list.py完整导出角色配置到JSON文件（覆盖现有配置）"""
-    from dnf.stronger.role_list import get_role_config_list
+    # 延迟导入，避免触发重量级依赖（cv2, numpy等）
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "role_list", 
+        os.path.join(os.path.dirname(__file__), "role_list.py")
+    )
+    role_list_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(role_list_module)
+    get_role_config_list = role_list_module.get_role_config_list
     role_configs = get_role_config_list(account_code)
     print(f"从role_list.py获取账号{account_code}的角色配置，共{len(role_configs)}个角色")
     if role_configs:
@@ -201,7 +209,15 @@ def sync_role_configs(account_code: int = 1) -> tuple:
     同步角色配置：只同步新增/删除的角色，保留已有角色的配置
     返回: (新增数量, 删除数量, 总数量)
     """
-    from dnf.stronger.role_list import get_role_config_list
+    # 延迟导入，避免触发重量级依赖（cv2, numpy等）
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "role_list", 
+        os.path.join(os.path.dirname(__file__), "role_list.py")
+    )
+    role_list_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(role_list_module)
+    get_role_config_list = role_list_module.get_role_config_list
     
     # 获取role_list.py中的角色
     role_list_configs = get_role_config_list(account_code)

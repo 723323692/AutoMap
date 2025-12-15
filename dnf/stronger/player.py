@@ -1130,19 +1130,26 @@ def close_new_day_dialog(handle, x, y):
     """
     关闭0点弹窗
     检测时机：脚本开始，换角色，出图后，
-    :return:
+    :return: True 如果检测到并关闭了弹窗，False 如果没有检测到弹窗
     """
     full_screen = window_utils.capture_window_BGRX(handle)
+    
+    # 先检测"关闭"按钮
     template_btn_close = cv2.imread(os.path.normpath(f'{config_.project_base_path}/assets/img/dialog-btn-close.png'), cv2.IMREAD_GRAYSCALE)
     matched1 = match_and_click(full_screen, x, y, template_btn_close, None)
     if matched1:
-        logger.info("关闭对话框了")
+        logger.info("检测到弹窗，已关闭")
+        return True
 
-    if not matched1:
-        logger.info("准备关闭对话框x")
-        full_screen = window_utils.capture_window_BGRX(handle)
-        template_btn_x = cv2.imread(os.path.normpath(f'{config_.project_base_path}/assets/img/dialog-btn-X.png'), cv2.IMREAD_GRAYSCALE)
-        match_and_click(full_screen, x, y, template_btn_x, None)
+    # 再检测"X"按钮
+    full_screen = window_utils.capture_window_BGRX(handle)
+    template_btn_x = cv2.imread(os.path.normpath(f'{config_.project_base_path}/assets/img/dialog-btn-X.png'), cv2.IMREAD_GRAYSCALE)
+    matched2 = match_and_click(full_screen, x, y, template_btn_x, None)
+    if matched2:
+        logger.info("检测到弹窗，已关闭")
+        return True
+    
+    return False
 
 
 if __name__ == '__main__':

@@ -22,9 +22,9 @@ from PyQt5.QtWidgets import (
     QTabWidget, QGroupBox, QLabel, QSpinBox, QComboBox, QCheckBox,
     QPushButton, QTextEdit, QRadioButton, QButtonGroup, QTableWidget,
     QTableWidgetItem, QHeaderView, QMessageBox, QDialog, QLineEdit,
-    QFormLayout, QDialogButtonBox, QScrollArea
+    QFormLayout, QDialogButtonBox, QScrollArea, QProgressDialog
 )
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QObject, QTimer
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QObject, QTimer, QTime
 from PyQt5.QtGui import QFont, QTextCursor, QIcon, QPalette, QLinearGradient, QColor, QBrush
 
 # 配置文件路径
@@ -54,6 +54,44 @@ class StdoutRedirector(QObject):
     
     def flush(self):
         pass
+
+
+class PreloadWorker(QThread):
+    """模块预加载线程"""
+    progress_signal = pyqtSignal(int)  # percent
+    finished_signal = pyqtSignal(bool, str)  # success, message
+    
+    def run(self):
+        import time as _time
+        start_time = _time.time()
+        
+        try:
+            self.progress_signal.emit(0)
+            import torch
+            
+            self.progress_signal.emit(20)
+            import cv2
+            
+            self.progress_signal.emit(40)
+            import numpy
+            
+            self.progress_signal.emit(60)
+            from ultralytics import YOLO
+            
+            self.progress_signal.emit(80)
+            stronger_dir = os.path.join(PROJECT_ROOT, 'dnf', 'stronger')
+            if stronger_dir not in sys.path:
+                sys.path.insert(0, stronger_dir)
+            if PROJECT_ROOT not in sys.path:
+                sys.path.insert(0, PROJECT_ROOT)
+            import dnf.stronger.main
+            
+            elapsed = _time.time() - start_time
+            self.finished_signal.emit(True, f"加载完成，耗时 {elapsed:.1f} 秒")
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())
+            self.finished_signal.emit(False, f"加载失败: {e}")
 
 
 class HotkeyListener(QThread):
@@ -426,6 +464,8 @@ class MainWindow(QMainWindow):
         self.load_mail_config()  # 加载邮件配置
         self.apply_gui_config()  # 应用保存的配置
         self.start_hotkey_listener()
+        self.init_schedule_timer()  # 初始化定时器
+        self.preload_modules()  # 后台预加载重量级模块
     
     def auto_sync_role_config(self):
         """启动时自动同步角色配置（只同步新增/删除的角色）"""
@@ -990,6 +1030,63 @@ class MainWindow(QMainWindow):
         finish_layout.addWidget(self.shutdown_after_finish)
         layout.addWidget(finish_group)
         
+        # 定时启动设置
+        schedule_group = QGroupBox("定时启动设置")
+        schedule_layout = QVBoxLayout(schedule_group)
+        schedule_layout.setSpacing(6)
+        schedule_layout.setContentsMargins(8, 8, 8, 8)
+        
+        # 启用定时启动
+        row_enable = QHBoxLayout()
+        self.schedule_enabled = QCheckBox("启用定时启动")
+        self.schedule_enabled.setToolTip("到达设定时间后自动启动脚本")
+        self.schedule_enabled.stateChanged.connect(self.on_schedule_enabled_changed)
+        row_enable.addWidget(self.schedule_enabled)
+        row_enable.addStretch()
+        schedule_layout.addLayout(row_enable)
+        
+        # 定时时间设置
+        row_time = QHBoxLayout()
+        lbl_time = QLabel("启动时间:")
+        lbl_time.setFixedWidth(label_width)
+        row_time.addWidget(lbl_time)
+        self.schedule_hour = NoScrollSpinBox()
+        self.schedule_hour.setRange(0, 23)
+        self.schedule_hour.setValue(2)  # 默认 02 时
+        self.schedule_hour.setFixedSize(50, 28)
+        self.schedule_hour.valueChanged.connect(self.on_schedule_time_changed)
+        row_time.addWidget(self.schedule_hour)
+        row_time.addWidget(QLabel("时"))
+        self.schedule_minute = NoScrollSpinBox()
+        self.schedule_minute.setRange(0, 59)
+        self.schedule_minute.setValue(3)  # 默认 03 分
+        self.schedule_minute.setFixedSize(50, 28)
+        self.schedule_minute.valueChanged.connect(self.on_schedule_time_changed)
+        row_time.addWidget(self.schedule_minute)
+        row_time.addWidget(QLabel("分"))
+        
+        # 定时启动模式选择
+        lbl_mode = QLabel("启动模式:")
+        lbl_mode.setFixedWidth(70)
+        row_time.addWidget(lbl_mode)
+        self.schedule_mode = NoScrollComboBox()
+        self.schedule_mode.setFixedWidth(120)
+        self.schedule_mode.addItems(["当前选项卡", "妖气追踪/白图", "深渊模式"])
+        self.schedule_mode.currentIndexChanged.connect(self.on_schedule_mode_changed)
+        row_time.addWidget(self.schedule_mode)
+        row_time.addStretch()
+        schedule_layout.addLayout(row_time)
+        
+        # 定时状态显示
+        row_status = QHBoxLayout()
+        self.schedule_status_label = QLabel("定时状态: 未启用")
+        self.schedule_status_label.setStyleSheet("color: #666;")
+        row_status.addWidget(self.schedule_status_label)
+        row_status.addStretch()
+        schedule_layout.addLayout(row_status)
+        
+        layout.addWidget(schedule_group)
+        
         # 显示设置
         display_group = QGroupBox("显示设置")
         display_layout = QVBoxLayout(display_group)
@@ -1108,6 +1205,111 @@ DNF_MAIL_RECEIVER={receiver}
         self.hotkey_listener.pause_signal.connect(self.pause_script)
         self.hotkey_listener.start()
     
+    def init_schedule_timer(self):
+        """初始化定时启动定时器"""
+        self.schedule_timer = QTimer(self)
+        self.schedule_timer.timeout.connect(self.check_schedule_time)
+        self.schedule_timer.start(1000)  # 每秒检查一次
+        self._last_triggered_minute = -1  # 防止同一分钟重复触发
+        self.update_schedule_status()
+    
+    def preload_modules(self):
+        """后台预加载重量级模块，加速脚本启动"""
+        self._preload_done = False
+        self.start_btn.setEnabled(False)
+        self.start_btn.setText("加载中...")
+        
+        # 创建进度对话框
+        self._progress_dialog = QProgressDialog("正在加载模块...", None, 0, 100, self)
+        self._progress_dialog.setWindowTitle("初始化")
+        self._progress_dialog.setWindowModality(Qt.WindowModal)
+        self._progress_dialog.setMinimumDuration(0)
+        self._progress_dialog.setCancelButton(None)  # 不允许取消
+        self._progress_dialog.setAutoClose(True)
+        self._progress_dialog.setValue(0)
+        self._progress_dialog.show()
+        
+        # 创建预加载线程
+        self._preload_worker = PreloadWorker()
+        self._preload_worker.progress_signal.connect(self._on_preload_progress)
+        self._preload_worker.finished_signal.connect(self._on_preload_finished)
+        self._preload_worker.start()
+    
+    def _on_preload_progress(self, percent):
+        """预加载进度更新"""
+        if hasattr(self, '_progress_dialog') and self._progress_dialog:
+            self._progress_dialog.setValue(percent)
+    
+    def _on_preload_finished(self, success, message):
+        """预加载完成回调"""
+        self._preload_done = True
+        if hasattr(self, '_progress_dialog') and self._progress_dialog:
+            self._progress_dialog.setValue(100)
+            self._progress_dialog.close()
+        self.log(message)
+        self.start_btn.setEnabled(True)
+        self.start_btn.setText("▶ 启动 (F10)")
+    
+    def on_schedule_enabled_changed(self, state):
+        """定时启动开关变化"""
+        self.update_schedule_status()
+        if state:
+            self.log(f"定时启动已启用，将在 {self.schedule_hour.value():02d}:{self.schedule_minute.value():02d} 自动启动")
+        else:
+            self.log("定时启动已禁用")
+    
+    def on_schedule_time_changed(self, value):
+        """定时时间改变"""
+        self.update_schedule_status()
+        self._last_triggered_minute = -1  # 重置触发记录
+    
+    def on_schedule_mode_changed(self, index):
+        """定时模式改变"""
+        self.update_schedule_status()
+    
+    def update_schedule_status(self):
+        """更新定时状态显示"""
+        if self.schedule_enabled.isChecked():
+            time_str = f"{self.schedule_hour.value():02d}:{self.schedule_minute.value():02d}"
+            mode_text = self.schedule_mode.currentText()
+            self.schedule_status_label.setText(f"定时状态: 将在 {time_str} 启动 [{mode_text}]")
+            self.schedule_status_label.setStyleSheet("color: #2e7d32; font-weight: bold;")
+        else:
+            self.schedule_status_label.setText("定时状态: 未启用")
+            self.schedule_status_label.setStyleSheet("color: #666;")
+    
+    def check_schedule_time(self):
+        """检查是否到达定时启动时间"""
+        if not self.schedule_enabled.isChecked():
+            return
+        
+        # 如果脚本已在运行，不重复启动
+        if self.worker and self.worker.isRunning():
+            return
+        
+        current_time = QTime.currentTime()
+        current_minute = current_time.hour() * 60 + current_time.minute()
+        schedule_minute = self.schedule_hour.value() * 60 + self.schedule_minute.value()
+        
+        # 检查是否到达设定时间（同一分钟内只触发一次）
+        if current_minute == schedule_minute and self._last_triggered_minute != current_minute:
+            self._last_triggered_minute = current_minute
+            self.log(f"定时启动触发！当前时间: {current_time.toString('HH:mm:ss')}")
+            self.scheduled_start()
+    
+    def scheduled_start(self):
+        """定时启动脚本"""
+        mode_index = self.schedule_mode.currentIndex()
+        
+        if mode_index == 0:  # 当前选项卡
+            self.start_script()
+        elif mode_index == 1:  # 妖气追踪/白图
+            self.tabs.setCurrentIndex(0)
+            QTimer.singleShot(100, self.start_script)
+        elif mode_index == 2:  # 深渊模式
+            self.tabs.setCurrentIndex(1)
+            QTimer.singleShot(100, self.start_script)
+    
     def log(self, message):
         timestamp = datetime.now().strftime("%H:%M:%S")
         msg_lower = message.lower()
@@ -1182,12 +1384,17 @@ DNF_MAIL_RECEIVER={receiver}
             'abyss_bell': self.abyss_bell.currentIndex(),
             'abyss_ssm': self.abyss_ssm.currentIndex(),
             'abyss_catalyst': self.abyss_catalyst.currentIndex(),
-            # 执行完成后操作
-            'quit_game_after_finish': self.quit_game_after_finish.isChecked(),
-            'shutdown_after_finish': self.shutdown_after_finish.isChecked(),
+            # 执行完成后操作（都不保存，每次默认关闭）
+            # 'quit_game_after_finish' 不保存，每次默认关闭
+            # 'shutdown_after_finish' 不保存，每次默认关闭
             # 设置
-            'show_detection': self.show_detection.isChecked(),
+            # 'show_detection' 不保存，每次默认关闭
             'enable_pic_log': self.enable_pic_log.isChecked(),
+            # 定时启动设置（只保存时间和模式，不保存启用状态）
+            # 'schedule_enabled' 不保存，每次默认关闭
+            'schedule_hour': self.schedule_hour.value(),
+            'schedule_minute': self.schedule_minute.value(),
+            'schedule_mode': self.schedule_mode.currentIndex(),
             # 当前选项卡
             'current_tab': self.tabs.currentIndex()
         }
@@ -1258,16 +1465,21 @@ DNF_MAIL_RECEIVER={receiver}
             if 'abyss_catalyst' in c:
                 self.abyss_catalyst.setCurrentIndex(c['abyss_catalyst'])
 
-            # 执行完成后操作
-            if 'quit_game_after_finish' in c:
-                self.quit_game_after_finish.setChecked(c['quit_game_after_finish'])
-            if 'shutdown_after_finish' in c:
-                self.shutdown_after_finish.setChecked(c['shutdown_after_finish'])
+            # 执行完成后操作（都不加载，每次默认关闭）
+            # quit_game_after_finish 不加载，每次默认关闭
+            # shutdown_after_finish 不加载，每次默认关闭
             # 设置
-            if 'show_detection' in c:
-                self.show_detection.setChecked(c['show_detection'])
+            # show_detection 不加载，每次默认关闭
             if 'enable_pic_log' in c:
                 self.enable_pic_log.setChecked(c['enable_pic_log'])
+            # 定时启动设置（只加载时间和模式，启用状态每次默认关闭）
+            # schedule_enabled 不加载，每次默认关闭
+            if 'schedule_hour' in c:
+                self.schedule_hour.setValue(c['schedule_hour'])
+            if 'schedule_minute' in c:
+                self.schedule_minute.setValue(c['schedule_minute'])
+            if 'schedule_mode' in c:
+                self.schedule_mode.setCurrentIndex(c['schedule_mode'])
             # 当前选项卡
             if 'current_tab' in c:
                 self.tabs.setCurrentIndex(c['current_tab'])

@@ -53,8 +53,9 @@ def switch_level(level):
 
     file_log_id = logger.add(f'{log_dir}/{datetime.now().strftime("%Y-%m-%d.%H%M%S")}.log', level=level, retention=10,
                              enqueue=True)
-    # console_log_id = logger.add(sys.stderr, level=level)
-    console_log_id = logger.add(sys.stderr, enqueue=True)
+    # 只有当 sys.stderr 有效时才添加控制台日志（GUI模式下可能为None）
+    if sys.stderr is not None:
+        console_log_id = logger.add(sys.stderr, enqueue=True)
 
 
 switch_level("INFO")

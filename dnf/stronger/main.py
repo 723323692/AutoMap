@@ -64,7 +64,8 @@ from dnf.stronger.player import (
     process_mystery_shop,
     activity_live,
     do_recognize_fatigue,
-    receive_mail
+    receive_mail,
+    close_new_day_dialog
 )
 from logger_config import logger
 from dnf.stronger.role_config_manager import get_role_config_list_from_json as get_role_config_list
@@ -177,8 +178,25 @@ color_yellow = (0, 255, 255)  # 黄色
 color_purple = (255, 0, 255)  # 紫色
 
 # ---------------------------------------------------------
-model = YOLO(weights)
-device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+# 延迟加载模型，提升启动速度
+model = None
+device = None
+
+def get_model():
+    """延迟加载YOLO模型"""
+    global model, device
+    if model is None:
+        import time as _time
+        t0 = _time.time()
+        logger.info("正在加载YOLO模型...")
+        model = YOLO(weights)
+        device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+        # 模型预热，让首次推理更快
+        logger.info("模型预热中...")
+        dummy_img = np.zeros((640, 640, 3), dtype=np.uint8)
+        model.predict(source=dummy_img, device=device, verbose=False)
+        logger.info(f"模型加载完成，使用设备: {device}，耗时: {_time.time()-t0:.1f}秒")
+    return model, device
 # if device.type != 'cpu':
 #     model.half()  # to FP16
 names = [
@@ -325,50 +343,103 @@ tool_executor = concurrent.futures.ThreadPoolExecutor(max_workers=3)
 mail_sender = EmailSender(mail_config)  # 初始化邮件发送器
 stop_signal = [False]
 
-# 创建一个队列，用于主线程和展示线程之间的通信
-result_queue = queue.Queue()
+# 创建一个队列，用于主线程和展示线程之间的通信（maxsize=2避免堆积）
+result_queue = queue.Queue(maxsize=2)
 
+
+# 展示线程停止标志
+display_stop_flag = False
 
 # 展示线程的函数
 def display_results():
+    global display_stop_flag
+    window_name = "Game Capture"
     window_created = False
-    while True:
+    last_frame = None
+    
+    while not display_stop_flag:
         try:
-            # 从队列中获取检测结果（带超时避免阻塞）
+            # 非阻塞获取最新帧
+            frame = None
             try:
-                frame_with_detections = result_queue.get(timeout=0.1)
+                # 获取队列中所有帧，只保留最新的
+                while True:
+                    frame = result_queue.get_nowait()
+                    if frame is None:
+                        display_stop_flag = True
+                        break
             except queue.Empty:
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-                continue
-                
-            if frame_with_detections is None:  # 如果接收到None，退出线程
+                pass
+            
+            if display_stop_flag:
                 break
+                
+            # 有新帧就更新，没有就用上一帧
+            if frame is not None:
+                last_frame = frame
+            
+            if last_frame is None:
+                cv2.waitKey(30)
+                continue
 
-            # 只创建一次窗口
+            # 创建窗口
             if not window_created:
-                cv2.namedWindow("Game Capture", cv2.WINDOW_AUTOSIZE)
-                cv2.moveWindow("Game Capture", 10, 10)
+                cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+                cv2.resizeWindow(window_name, 640, 360)
+                cv2.moveWindow(window_name, 10, 10)
                 window_created = True
 
-            # 缩小并显示
-            frame_resized = cv2.resize(frame_with_detections, (640, 360))
-            cv2.imshow("Game Capture", frame_resized)
-
-            # 按下 'q' 键退出
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            # 显示
+            cv2.imshow(window_name, last_frame)
+            
+            # waitKey 控制刷新率，约30fps
+            if cv2.waitKey(33) & 0xFF == ord('q'):
                 break
+                
         except Exception as e:
-            logger.error(f"展示显示报错: {e}")
+            if not display_stop_flag:
+                logger.error(f"展示显示报错: {e}")
+            break
 
-    # 清理资源
-    cv2.destroyAllWindows()
+    # 清理
+    try:
+        cv2.destroyWindow(window_name)
+        cv2.waitKey(1)
+    except:
+        pass
 
 
-# 启动展示线程（如果show=True）
-if show:
-    display_thread = threading.Thread(target=display_results, daemon=True)
-    display_thread.start()
+# 展示线程变量
+display_thread = None
+
+
+def start_display_thread():
+    """启动展示线程"""
+    global display_thread, display_stop_flag
+    display_stop_flag = False
+    
+    # 清空队列
+    while not result_queue.empty():
+        try:
+            result_queue.get_nowait()
+        except:
+            break
+    
+    if display_thread is None or not display_thread.is_alive():
+        display_thread = threading.Thread(target=display_results, daemon=True)
+        display_thread.start()
+        logger.info("检测结果展示窗口已启动")
+
+
+def stop_display_thread():
+    """停止展示线程"""
+    global display_stop_flag
+    display_stop_flag = True
+    # 发送None信号让线程退出
+    try:
+        result_queue.put(None)
+    except:
+        pass
 
 #  >>>>>>>>>>>>>>>> 方法定义 >>>>>>>>>>>>>>>>
 
@@ -726,10 +797,35 @@ def main_script():
     finally:
         logger.info("脚本执行结束")
         mover._release_all_keys()
+        
+        # 停止展示线程
+        if show:
+            stop_display_thread()
+        
+        # 脚本正常执行完,不是被组合键中断的,并且配置了退出游戏
+        if not stop_be_pressed and quit_game_after_finish:
+            logger.info("正在退出游戏...")
+            try:
+                clik_to_quit_game(handle, x, y)
+                time.sleep(5)
+            except Exception as e:
+                logger.error(f"退出游戏失败: {e}")
+        
+        # 关机
+        if not stop_be_pressed and quit_game_after_finish and shutdown_pc_after_finish:
+            logger.info("一分钟之后关机...")
+            os.system("shutdown /s /t 60")
 
 
 def _run_main_script():
-    global x, y, handle, show, game_mode, stop_signal, stop_be_pressed
+    global x, y, handle, show, game_mode, stop_signal, stop_be_pressed, display_thread
+    
+    # 加载模型（延迟加载，首次调用时才真正加载）
+    model, device = get_model()
+    
+    # 启动展示线程（如果show=True）
+    if show:
+        start_display_thread()
     
     # 获取游戏窗口的位置，和大小
     handle = window_utils.get_window_handle(dnf.window_title)
@@ -796,6 +892,13 @@ def _run_main_script():
         if last_role_no != -1 and role_no > last_role_no:
             logger.warning(f'已到达结束角色【{last_role_no}】，退出循环')
             break
+        
+        # 检查并关闭0点弹窗（只在角色真正开始执行前检测）
+        try:
+            if close_new_day_dialog(handle, x, y):
+                safe_sleep(0.5)  # 关闭弹窗后等待一下
+        except Exception as e:
+            logger.warning(f"检测0点弹窗失败: {e}")
             
         logger.warning(f'第【{role_no}】个角色，【{role.name}】 开始了')
         oen_role_start_time = datetime.now()
@@ -1556,13 +1659,11 @@ def _run_main_script():
 
                 # 截图展示前的处理完毕,放入队列由独立线程显示
                 if show:
-                    # 清空旧帧，只保留最新的
-                    while not result_queue.empty():
-                        try:
-                            result_queue.get_nowait()
-                        except queue.Empty:
-                            break
-                    result_queue.put(img4show.copy())
+                    # 非阻塞放入，队列满则丢弃（保证主循环不卡）
+                    try:
+                        result_queue.put_nowait(img4show)
+                    except queue.Full:
+                        pass  # 队列满了就跳过这帧
                 # ######################### 判断完毕,进行逻辑处理 ########################################################
 
                 # 逻辑处理-找门进入下个房间>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -2089,30 +2190,33 @@ def _run_main_script():
         # show_right_bottom_icon(capturer.capture(), x, y)
 
         pause_event.wait()  # 暂停
-        # 如果刷图了,则完成每日任务,整理背包
-        if fight_count > 0:
+        # 如果刷图了,则完成每日任务,整理背包（强制停止时跳过）
+        if fight_count > 0 and not stop_be_pressed:
             logger.info('刷了图之后,进行整理....')
             pause_event.wait()  # 暂停
+            if stop_be_pressed:
+                logger.warning("检测到停止信号，跳过整理...")
+            else:
+                # 瞬移到赛丽亚房间
+                teleport_to_sailiya(x, y)
 
-            # 瞬移到赛丽亚房间
-            teleport_to_sailiya(x, y)
+                pause_event.wait()  # 暂停
+                # 完成每日任务
+                if game_mode == 2 and not stop_be_pressed:
+                    finish_daily_challenge_by_all(x, y, game_mode == 2)
 
-            pause_event.wait()  # 暂停
-            # 完成每日任务
-            if game_mode == 2:
-                finish_daily_challenge_by_all(x, y, game_mode == 2)
+                # pause_event.wait()  # 暂停
+                # # 一键出售装备,给赛丽亚
+                # sale_equipment_to_sailiya()
 
-            # pause_event.wait()  # 暂停
-            # # 一键出售装备,给赛丽亚
-            # sale_equipment_to_sailiya()
-
-            pause_event.wait()  # 暂停
-            receive_mail(capturer.capture(),x, y)
-            time.sleep(0.5)
-            # 转移材料到账号金库
-            transfer_materials_to_account_vault(x, y)
-            # 垃圾直播活动
-            # activity_live(x, y)
+                pause_event.wait()  # 暂停
+                if not stop_be_pressed:
+                    receive_mail(capturer.capture(),x, y)
+                    time.sleep(0.5)
+                    # 转移材料到账号金库
+                    transfer_materials_to_account_vault(x, y)
+                # 垃圾直播活动
+                # activity_live(x, y)
 
         pause_event.wait()  # 暂停
         # 准备重新选择角色
@@ -2208,16 +2312,4 @@ if __name__ == "__main__":
     logger.info(f'脚本结束: {end_time.strftime("%Y-%m-%d %H:%M:%S")}')
     time_delta = end_time - start_time
     logger.info(f'总计耗时: {(time_delta.total_seconds() / 60):.1f} 分钟')
-
-    # 脚本正常执行完,不是被组合键中断的,并且配置了退出游戏
-    if not stop_be_pressed and quit_game_after_finish:
-        logger.info("正在退出游戏...")
-        clik_to_quit_game(handle, x, y)
-        time.sleep(5)
-
     logger.info("python主线程已停止.....")
-
-    if not stop_be_pressed and quit_game_after_finish and shutdown_pc_after_finish:
-        logger.info("一分钟之后关机...")
-        # os.system("shutdown /r /t 60")  # 60后秒重启
-        os.system("shutdown /s /t 60")  # 60后秒关机

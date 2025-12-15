@@ -1,8 +1,8 @@
 {
   "game_mode": 3,
-  "account_code": 1,
-  "first_role": 31,
-  "last_role": 40,
+  "account_code": 2,
+  "first_role": 34,
+  "last_role": 37,
   "skip_role_enabled": true,
   "skip_role_list": "5,16",
   "stronger_uniform": false,
@@ -22,9 +22,9 @@
   "abyss_bell": 0,
   "abyss_ssm": 2,
   "abyss_catalyst": 7,
-  "quit_game_after_finish": true,
-  "shutdown_after_finish": true,
-  "show_detection": true,
   "enable_pic_log": true,
+  "schedule_hour": 17,
+  "schedule_minute": 47,
+  "schedule_mode": 1,
   "current_tab": 0
 }
