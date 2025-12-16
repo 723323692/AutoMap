@@ -186,11 +186,9 @@ atlassian-ide-plugin.xml
 # Cursive Clojure plugin
 /dnf/abyss/logs/
 /dnf/carry_bricks/logs/
-/weights/
 /logs/picture/
 /runs/
 /datasets/
-# /weights/
 /dnf/abyss/shop_imgs/
 /dnf/stronger/shop_imgs/
 /dnf/stronger/mail_imgs/
