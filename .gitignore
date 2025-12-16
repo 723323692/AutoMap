@@ -190,9 +190,11 @@ atlassian-ide-plugin.xml
 /logs/picture/
 /runs/
 /datasets/
+# /weights/
 /dnf/abyss/shop_imgs/
 /dnf/stronger/shop_imgs/
 /dnf/stronger/mail_imgs/
+/weights/__pycache__/
 
 # Local configuration
 .env.local
