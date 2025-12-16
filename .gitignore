@@ -205,3 +205,6 @@ atlassian-ide-plugin.xml
 gui_config.json
 log.txt
 role_config.json
+
+# IDE
+.vscode/
