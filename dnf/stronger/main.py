@@ -756,12 +756,15 @@ def minimap_analyse(capturer):
 
 
 def adjust_stutter_alarm(start_time,role_name,role_no,fight_count,handle):
+    import keyboard
     count = False
     while not stop_signal[0]:
         time.sleep(1)
         if (time.time() - start_time) > 60 and not count:
-            kbu.do_press(dnf.Key_collect_role)
-            logger.warning(f'第【{role_no}】个角色，【{role_name}】第【{fight_count}】次刷图,卡门【{(time.time() - start_time):.1f}】秒,尝试移动角色至上个门口~~~~~~')
+            logger.warning(f'第【{role_no}】个角色，【{role_name}】第【{fight_count}】次刷图,卡门【{(time.time() - start_time):.1f}】秒,尝试按键移动角色至上个门口~~~~~~')
+            # 直接使用keyboard库按小键盘7
+            keyboard.press_and_release('num 7')
+            logger.info(f'已按下 numpad_7 键')
             count = True
         elif (time.time() - start_time) > 100:
             capture_window_image(handle).save(os.path.join(os.getcwd(), "mail_imgs", "alarm_mali.png"))
