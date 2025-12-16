@@ -2930,7 +2930,7 @@
       "attack_center_x": 0,
       "attack_range_x": 0,
       "attack_range_y": 0,
-      "buff_effective": true,
+      "buff_effective": false,
       "powerful_skills": [
         {
           "type": "str",
@@ -5015,31 +5015,6 @@
           "value": "Key.ctrl_l"
         }
       ],
-      "white_map_level": 2
-    },
-    {
-      "name": "测试",
-      "no": 38,
-      "buffs": [
-        []
-      ],
-      "candidate_hotkeys": [
-        "x"
-      ],
-      "custom_priority_skills": [
-        {
-          "type": "str",
-          "value": "y"
-        }
-      ],
-      "height": 155,
-      "fatigue_all": 188,
-      "fatigue_reserved": 0,
-      "attack_center_x": 0,
-      "attack_range_x": 0,
-      "attack_range_y": 0,
-      "buff_effective": false,
-      "powerful_skills": [],
       "white_map_level": 2
     }
   ]

@@ -762,9 +762,16 @@ def adjust_stutter_alarm(start_time,role_name,role_no,fight_count,handle):
         time.sleep(1)
         if (time.time() - start_time) > 60 and not count:
             logger.warning(f'第【{role_no}】个角色，【{role_name}】第【{fight_count}】次刷图,卡门【{(time.time() - start_time):.1f}】秒,尝试按键移动角色至上个门口~~~~~~')
-            # 直接使用keyboard库按小键盘7
-            keyboard.press_and_release('num 7')
+            # 先释放所有按键，否则游戏可能不响应
+            mover._release_all_keys()
+            time.sleep(0.5)
+            # 用pynput按键，和技能按键一样的方式
+            kbu.do_press_with_time(dnf.Key_collect_role, 300, 200)
             logger.info(f'已按下 numpad_7 键')
+            time.sleep(0.3)
+            # 再按一次确保生效
+            kbu.do_press_with_time(dnf.Key_collect_role, 300, 200)
+            logger.info(f'再次按下 numpad_7 键')
             count = True
         elif (time.time() - start_time) > 100:
             capture_window_image(handle).save(os.path.join(os.getcwd(), "mail_imgs", "alarm_mali.png"))
@@ -1881,9 +1888,13 @@ def _run_main_script():
                     if loot_in_range:
                         # 不管了,全部释放掉
                         mover._release_all_keys()
-                        time.sleep(0.1)
-                        kbu.do_press("x")
-                        logger.debug("捡东西按完x了")
+                        # 金币自动拾取，不需要按x；只有材料才需要按x
+                        if not material_is_gold:
+                            time.sleep(0.1)
+                            kbu.do_press("x")
+                            logger.debug("捡材料按完x了")
+                        else:
+                            logger.debug("金币自动拾取，无需按x")
                         continue
 
                     # # 如果被材料卡在当前房间了,忽略材料
