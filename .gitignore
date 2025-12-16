@@ -200,3 +200,8 @@ atlassian-ide-plugin.xml
 
 # Training data
 /training/
+
+# Local config files
+gui_config.json
+log.txt
+role_config.json
