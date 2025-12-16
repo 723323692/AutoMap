@@ -197,3 +197,6 @@ atlassian-ide-plugin.xml
 # Local configuration
 .env.local
 *.local.py
+
+# Training data
+/training/

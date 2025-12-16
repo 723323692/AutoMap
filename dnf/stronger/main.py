@@ -180,21 +180,29 @@ color_purple = (255, 0, 255)  # 紫色
 # ---------------------------------------------------------
 # 延迟加载模型，提升启动速度
 model = None
+model_obstacle = None  # 障碍物检测模型
 device = None
+weights_obstacle = os.path.join(config_.project_base_path, 'weights', 'obstacle.pt')
 
 def get_model():
     """延迟加载YOLO模型"""
-    global model, device
+    global model, model_obstacle, device
     if model is None:
         import time as _time
         t0 = _time.time()
         logger.info("正在加载YOLO模型...")
         model = YOLO(weights)
         device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+        # 加载障碍物检测模型
+        if os.path.exists(weights_obstacle):
+            logger.info("正在加载障碍物检测模型...")
+            model_obstacle = YOLO(weights_obstacle)
         # 模型预热，让首次推理更快
         logger.info("模型预热中...")
         dummy_img = np.zeros((640, 640, 3), dtype=np.uint8)
         model.predict(source=dummy_img, device=device, verbose=False)
+        if model_obstacle:
+            model_obstacle.predict(source=dummy_img, device=device, verbose=False)
         logger.info(f"模型加载完成，使用设备: {device}，耗时: {_time.time()-t0:.1f}秒")
     return model, device
 # if device.type != 'cpu':
@@ -213,7 +221,8 @@ names = [
     'shop',
     'shop-mystery',
     'sss',
-    'door-boss'
+    'door-boss',
+    'obstacle'
 ]
 
 name_colors = [
@@ -312,6 +321,13 @@ name_colors = [
         "name": "door-boss",
         "id": 14,
         "color": "#ea6a4b",
+        "type": "rectangle",
+        "attributes": []
+    },
+    {
+        "name": "obstacle",
+        "id": 15,
+        "color": "#ff8c00",
         "type": "rectangle",
         "attributes": []
     }
@@ -501,6 +517,7 @@ def analyse_det_result(results, hero_height, img):
         gold_xywh_list = []
         door_xywh_list = []
         door_boss_xywh_list = []
+        obstacle_xywh_list = []
 
         hero_conf = -1
         hero_xywh = None
@@ -588,6 +605,9 @@ def analyse_det_result(results, hero_height, img):
             if names[cls] == "sss":
                 sss_exist = True
 
+            if names[cls] == "obstacle":
+                obstacle_xywh_list.append(xywh)
+
             # 在原图上画框
             if show and img is not None:
                 label = '%s %.2f' % (names[int(cls)], conf)
@@ -603,6 +623,7 @@ def analyse_det_result(results, hero_height, img):
         res.gold_xywh_list = gold_xywh_list
         res.door_xywh_list = door_xywh_list
         res.door_boss_xywh_list = door_boss_xywh_list
+        res.obstacle_xywh_list = obstacle_xywh_list
 
         res.hero_xywh = hero_xywh
         # res.hero_conf = hero_conf
@@ -1197,6 +1218,57 @@ def _run_main_script():
                     iou=0.2,
                     verbose=False
                 )
+                
+                # 障碍物模型推理并合并结果
+                if model_obstacle is not None:
+                    results_obstacle = model_obstacle.predict(
+                        source=img0,
+                        device=device,
+                        imgsz=640,
+                        conf=0.5,
+                        iou=0.2,
+                        verbose=False
+                    )
+                    if results_obstacle and len(results_obstacle) > 0 and len(results_obstacle[0].boxes) > 0:
+                        obstacle_boxes = results_obstacle[0].boxes
+                        # 获取原模型识别的door位置，用于去重
+                        main_door_boxes = []
+                        if results and len(results) > 0:
+                            for j, main_cls in enumerate(results[0].boxes.cls):
+                                if int(main_cls) == 3:  # door
+                                    main_door_boxes.append(results[0].boxes.xyxy[j].tolist())
+                        
+                        for i, cls in enumerate(obstacle_boxes.cls):
+                            cls_id = int(cls)
+                            new_box = obstacle_boxes.data[i]
+                            
+                            # obstacle类别(14)直接合并
+                            if cls_id == 14:
+                                if results and len(results) > 0:
+                                    results[0].boxes.data = torch.cat([results[0].boxes.data, new_box.unsqueeze(0)], dim=0)
+                            
+                            # door类别(3)需要去重：检查是否和原模型的door重叠
+                            elif cls_id == 3:
+                                new_xyxy = obstacle_boxes.xyxy[i].tolist()
+                                is_duplicate = False
+                                for main_box in main_door_boxes:
+                                    # 计算IoU判断是否重叠
+                                    x1 = max(new_xyxy[0], main_box[0])
+                                    y1 = max(new_xyxy[1], main_box[1])
+                                    x2 = min(new_xyxy[2], main_box[2])
+                                    y2 = min(new_xyxy[3], main_box[3])
+                                    inter = max(0, x2 - x1) * max(0, y2 - y1)
+                                    area1 = (new_xyxy[2] - new_xyxy[0]) * (new_xyxy[3] - new_xyxy[1])
+                                    area2 = (main_box[2] - main_box[0]) * (main_box[3] - main_box[1])
+                                    iou = inter / (area1 + area2 - inter + 1e-6)
+                                    if iou > 0.3:  # IoU > 0.3 认为是同一个门
+                                        is_duplicate = True
+                                        break
+                                
+                                # 不重复的门才合并
+                                if not is_duplicate and results and len(results) > 0:
+                                    results[0].boxes.data = torch.cat([results[0].boxes.data, new_box.unsqueeze(0)], dim=0)
+                                    logger.debug(f"新模型补充识别到门，位置: {new_xyxy}")
 
                 if results is None or len(results) == 0 or len(results[0].boxes) == 0:
                     # logger.info('模型没有识别到物体')
@@ -1224,6 +1296,11 @@ def _run_main_script():
                 gold_xywh_list = det.gold_xywh_list
                 door_xywh_list = det.door_xywh_list
                 door_boss_xywh_list = det.door_boss_xywh_list
+                obstacle_xywh_list = det.obstacle_xywh_list
+                
+                # 检测到障碍物时输出日志
+                if obstacle_xywh_list:
+                    logger.info(f"识别到{len(obstacle_xywh_list)}个障碍物")
 
                 card_num = det.card_num
                 continue_exist = det.continue_exist
@@ -1440,6 +1517,39 @@ def _run_main_script():
                         fq.clear()  # 重置历史记录
                         room_idx_list.clear()
                         stuck_room_idx = None
+                        
+                        # 如果有障碍物，根据角色位置和屏幕边界智能选择绕行方向
+                        if obstacle_xywh_list and hero_xywh:
+                            hero_x, hero_y = hero_xywh[0], hero_xywh[1]
+                            
+                            if kbd_current_direction:
+                                if "RIGHT" in kbd_current_direction or "LEFT" in kbd_current_direction:
+                                    base_dir = "RIGHT" if "RIGHT" in kbd_current_direction else "LEFT"
+                                    # 根据角色在屏幕上的Y位置决定绕行方向
+                                    # 如果角色在屏幕下半部分（Y>400），向上绕
+                                    # 如果角色在屏幕上半部分（Y<400），向下绕
+                                    if hero_y > 450:
+                                        # 角色在屏幕底部，必须向上绕
+                                        random_direct = f"{base_dir}_UP"
+                                        logger.warning(f'卡住绕行：角色Y={hero_y:.0f}在底部，强制向上绕，选择{random_direct}')
+                                    elif hero_y < 350:
+                                        # 角色在屏幕顶部，必须向下绕
+                                        random_direct = f"{base_dir}_DOWN"
+                                        logger.warning(f'卡住绕行：角色Y={hero_y:.0f}在顶部，强制向下绕，选择{random_direct}')
+                                    else:
+                                        # 角色在中间，随机选择
+                                        random_direct = f"{base_dir}_UP" if random.random() > 0.5 else f"{base_dir}_DOWN"
+                                        logger.warning(f'卡住绕行：角色Y={hero_y:.0f}在中间，随机选择{random_direct}')
+                                elif "UP" in kbd_current_direction or "DOWN" in kbd_current_direction:
+                                    base_dir = "UP" if "UP" in kbd_current_direction else "DOWN"
+                                    if hero_x > 700:
+                                        random_direct = f"LEFT_{base_dir}"
+                                    elif hero_x < 350:
+                                        random_direct = f"RIGHT_{base_dir}"
+                                    else:
+                                        random_direct = f"RIGHT_{base_dir}" if random.random() > 0.5 else f"LEFT_{base_dir}"
+                                    logger.warning(f'卡住绕行：角色X={hero_x:.0f}，选择{random_direct}')
+                        
                         logger.warning('可能卡住不能移动了,随机跑个方向看看-->{}', random_direct)  # todo 方向处理
                         mover.move(target_direction=random_direct)
                         time.sleep(round(random.uniform(0.2, 0.6), 1))
@@ -1688,15 +1798,14 @@ def _run_main_script():
                     # todo 门还要处理，做追踪？
                     # if len(allow_directions) > len(door_xywh_list + door_boss_xywh_list):
                     if not is_target_door:
-                        # 尚未出现目标门,需要继续移动寻找 todo 当前画面一个门也没有的时候进不来这个逻辑
+                        # 尚未出现目标门,需要继续移动寻找
                         if next_room_direction == 'RIGHT' and (
-                                not door_box or door_box[0] < img0.shape[1] * 4 // 5):  # 右侧四分之一还没有门出现,继续往右
+                                not door_box or door_box[0] < img0.shape[1] * 4 // 5):
                             logger.debug("目标房间在右边---->右侧四分之一还没有门出现,继续往右")
-                            # todo 防止走向目标门的过程中,误入其他门(主要是左右跑的时候,误入了上方或下方的门)
                             mover.move(target_direction="RIGHT")
                             continue
                         if next_room_direction == 'LEFT' and (
-                                not door_box or door_box[0] > img0.shape[1] // 5):  # 左侧四分之一还没有门出现,继续往左
+                                not door_box or door_box[0] > img0.shape[1] // 5):
                             logger.debug("目标房间在左边---->左侧四分之一还没有门出现,继续往左")
                             mover.move(target_direction="LEFT")
                             continue
@@ -1795,6 +1904,59 @@ def _run_main_script():
                             target_dir = "DOWN"
                     
                     if target_dir:
+                        # 障碍物绕行：检测障碍物是否在角色前进路径上
+                        if obstacle_xywh_list and hero_xywh and door_box:
+                            hero_x, hero_y = hero_xywh[0], hero_xywh[1]
+                            door_x, door_y = door_box[0], door_box[1]
+                            
+                            for obs in obstacle_xywh_list:
+                                obs_x, obs_y = obs[0], obs[1]
+                                obs_w, obs_h = obs[2] if len(obs) > 2 else 60, obs[3] if len(obs) > 3 else 40
+                                
+                                # 计算距离
+                                dist_to_hero = ((obs_x - hero_x) ** 2 + (obs_y - hero_y) ** 2) ** 0.5
+                                
+                                # 检测距离放宽到200像素，提前绕行
+                                if dist_to_hero > 200:
+                                    logger.debug(f"障碍物太远，位置({obs_x:.0f},{obs_y:.0f})，距离{dist_to_hero:.0f}")
+                                    continue
+                                
+                                # 判断障碍物是否在前进方向上
+                                in_path = False
+                                if "RIGHT" in target_dir and obs_x > hero_x:
+                                    # 向右走，障碍物在右边，且Y轴接近
+                                    if abs(obs_y - hero_y) < obs_h + 50:
+                                        in_path = True
+                                elif "LEFT" in target_dir and obs_x < hero_x:
+                                    # 向左走，障碍物在左边，且Y轴接近
+                                    if abs(obs_y - hero_y) < obs_h + 50:
+                                        in_path = True
+                                elif target_dir == "UP" and obs_y < hero_y:
+                                    if abs(obs_x - hero_x) < obs_w + 50:
+                                        in_path = True
+                                elif target_dir == "DOWN" and obs_y > hero_y:
+                                    if abs(obs_x - hero_x) < obs_w + 50:
+                                        in_path = True
+                                
+                                if in_path:
+                                    logger.warning(f"执行障碍物绕行！位置({obs_x:.0f},{obs_y:.0f})，距离{dist_to_hero:.0f}，方向{target_dir}")
+                                    # 根据障碍物位置选择绕行方向
+                                    if "RIGHT" in target_dir or "LEFT" in target_dir:
+                                        # 水平移动时，根据障碍物Y位置选择上下绕行
+                                        if obs_y > hero_y:
+                                            # 障碍物在下方，向上绕
+                                            target_dir = target_dir.replace("_DOWN", "").replace("_UP", "") + "_UP"
+                                        else:
+                                            # 障碍物在上方，向下绕
+                                            target_dir = target_dir.replace("_DOWN", "").replace("_UP", "") + "_DOWN"
+                                    else:
+                                        # 垂直移动时，根据障碍物X位置选择左右绕行
+                                        if obs_x > hero_x:
+                                            target_dir = "LEFT_" + target_dir
+                                        else:
+                                            target_dir = "RIGHT_" + target_dir
+                                    break
+                        
                         mover.move(target_direction=target_dir)
 
                     continue

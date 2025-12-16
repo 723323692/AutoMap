@@ -13,6 +13,7 @@ class DetResult:
         self.gold_xywh_list = []
         self.door_xywh_list = []
         self.door_boss_xywh_list = []
+        self.obstacle_xywh_list = []  # 障碍物
 
         # self.hero_conf = -1
         self.hero_xywh = None
