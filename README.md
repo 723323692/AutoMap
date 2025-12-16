@@ -199,7 +199,13 @@ BabyBus/
 
 [冷兔](https://github.com/723323692)
 
-- 723323692@qq.com /  zzs1999bd@163.com
+- Email: 723323692@qq.com /  zzs1999bd@163.com
 - GitHub: https://github.com/723323692
+
+[甘霖](https://github.com/nianling)
+
+- Email: wemean66@gmail.com, nianlingbeige@163.com
+- GitHub: GitHub: https://github.com/nianling
+
 
 完整许可证见 [LICENSE](LICENSE) 文件。
