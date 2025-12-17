@@ -125,10 +125,11 @@ class HotkeyListener(QThread):
     def run(self):
         try:
             import keyboard
-            # 不使用suppress，避免影响热键响应
+            # 只注册F10启动热键，End和Delete由脚本内部处理
             keyboard.add_hotkey('f10', lambda: self._debounced_emit('f10', self.start_signal))
-            keyboard.add_hotkey('end', lambda: self._debounced_emit('end', self.stop_signal))
-            keyboard.add_hotkey('delete', lambda: self._debounced_emit('delete', self.pause_signal))
+            # End和Delete热键由main.py中的start_keyboard_listener处理，避免重复触发
+            # keyboard.add_hotkey('end', lambda: self._debounced_emit('end', self.stop_signal))
+            # keyboard.add_hotkey('delete', lambda: self._debounced_emit('delete', self.pause_signal))
             
             while self._running:
                 self.msleep(50)  # 缩短检查间隔，提高响应速度
@@ -341,9 +342,9 @@ class ScriptWorker(QThread):
             # 保存模块引用用于停止
             self._stronger_main = stronger_main
             
-            # GUI模式下不启动脚本内部的热键监听，避免重复触发
-            # listener = threading.Thread(target=stronger_main.start_keyboard_listener, daemon=True)
-            # listener.start()
+            # 启动脚本内部的热键监听（End停止、Delete暂停）
+            listener = threading.Thread(target=stronger_main.start_keyboard_listener, daemon=True)
+            listener.start()
             stronger_main.main_script()
             self.log("脚本执行完成")
         finally:
@@ -1739,8 +1740,21 @@ class MainWindow(QMainWindow):
             import dnf.dnf_config
             importlib.reload(dnf.dnf_config)
             
+            # 如果脚本正在运行，重新注册热键
+            hotkey_reloaded = False
+            try:
+                if 'dnf.stronger.main' in sys.modules:
+                    stronger_main = sys.modules['dnf.stronger.main']
+                    if hasattr(stronger_main, 'reload_hotkeys'):
+                        stop_key, pause_key = stronger_main.reload_hotkeys()
+                        hotkey_reloaded = True
+                        self.log(f"热键已重新注册: 停止={stop_key}, 暂停={pause_key}")
+            except Exception as e:
+                self.log(f"重新注册热键失败: {e}")
+            
             self.log("按键配置已保存并生效")
-            QMessageBox.information(self, "成功", "按键配置已保存并立即生效！")
+            msg = "按键配置已保存！" + ("\n热键已立即生效。" if hotkey_reloaded else "\n下次启动脚本时生效。")
+            QMessageBox.information(self, "成功", msg)
         except Exception as e:
             self.log(f"保存按键配置失败: {e}")
             QMessageBox.critical(self, "错误", f"保存失败: {e}")
@@ -2748,9 +2762,37 @@ DNF_MAIL_RECEIVER={receiver}
 
     def start_script(self):
         """启动脚本"""
+        # 检查worker是否真正在运行
         if self.worker and self.worker.isRunning():
-            self.log("脚本已在运行中")
-            return
+            # 检查脚本模块的停止标志，如果已经设置了停止，说明脚本正在退出中
+            try:
+                if 'dnf.stronger.main' in sys.modules:
+                    mod = sys.modules['dnf.stronger.main']
+                    if mod.stop_be_pressed:
+                        self.log("等待上一次脚本完全停止...")
+                        self.worker.wait(2000)  # 等待最多2秒
+                        if self.worker.isRunning():
+                            self.worker.terminate()
+                            self.worker.wait(500)
+                        self.log("上一次脚本已停止")
+                    else:
+                        self.log("脚本已在运行中")
+                        return
+                else:
+                    self.log("脚本已在运行中")
+                    return
+            except Exception:
+                self.log("脚本已在运行中")
+                return
+        
+        # 重置停止标志（确保下次能正常启动）
+        try:
+            if 'dnf.stronger.main' in sys.modules:
+                sys.modules['dnf.stronger.main'].stop_be_pressed = False
+            if 'dnf.abyss.main' in sys.modules:
+                sys.modules['dnf.abyss.main'].stop_be_pressed = False
+        except Exception:
+            pass
         
         current_tab = self.tabs.currentIndex()
         
@@ -2926,6 +2968,15 @@ DNF_MAIL_RECEIVER={receiver}
         self._stopping = False  # 重置停止标志
         self.statusBar().showMessage("就绪 - F10启动 | Delete暂停 | End停止")
         self.log("脚本已停止")
+        
+        # 重置脚本模块的停止标志，确保下次能正常启动
+        try:
+            if 'dnf.stronger.main' in sys.modules:
+                sys.modules['dnf.stronger.main'].stop_be_pressed = False
+            if 'dnf.abyss.main' in sys.modules:
+                sys.modules['dnf.abyss.main'].stop_be_pressed = False
+        except Exception:
+            pass
     
     def closeEvent(self, event):
         """关闭窗口"""

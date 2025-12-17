@@ -459,51 +459,162 @@ def stop_display_thread():
 
 #  >>>>>>>>>>>>>>>> 方法定义 >>>>>>>>>>>>>>>>
 
-def on_press(key):
-    global stop_be_pressed, continue_pressed, x, y
-    if key in dnf.key_stop_script or key in dnf.key_pause_script:
-        current_keys_control.add(key)
-        if all(k in current_keys_control for k in dnf.key_stop_script):
-            formatted_keys = ', '.join(item.name for item in dnf.key_stop_script)
-            logger.warning(f"监听到组合键 [{formatted_keys}]，停止脚本...")
-            threading.Thread(target=lambda: winsound.PlaySound(config_.sound2, winsound.SND_FILENAME)).start()
-            stop_be_pressed = True
-            return False  # 停止监听
-
-        if all(k in current_keys_control for k in dnf.key_pause_script):
-            formatted_keys = ', '.join(item.name for item in dnf.key_pause_script)
-            logger.warning(f"监听到组合键 [{formatted_keys}]，暂停or继续?")
-            threading.Thread(target=lambda: winsound.PlaySound(config_.sound3, winsound.SND_FILENAME)).start()
-            if pause_event.is_set():
-                logger.warning(f"按下 [{formatted_keys}]键，暂停运行...")
-                pause_event.clear()  # 暂停
-                mover._release_all_keys()
-                time.sleep(0.2)
-                mover._release_all_keys()
-            else:
-                logger.warning(f"按下 [{formatted_keys}] 键，唤醒运行...")
-                x, y, _, _ = window_utils.get_window_rect(handle)
-                mu.do_smooth_move_to(x + 500, y + 300)
-                time.sleep(0.1)
-                mu.do_click(Button.left)
-                continue_pressed = True
-                pause_event.set()  # 继续
-            time.sleep(0.5)  # 防止重复触发
+def _do_stop_action():
+    """停止脚本的实际操作（在单独线程中执行）"""
+    global stop_be_pressed
+    winsound.PlaySound(config_.sound2, winsound.SND_FILENAME)
+    stop_be_pressed = True
+    # 立即释放所有按键
+    mover._release_all_keys()
 
 
-def on_release(key):
+def on_stop_hotkey():
+    """停止脚本的热键回调 - 立即响应，耗时操作放到线程"""
+    global stop_be_pressed
+    logger.warning("监听到停止热键，停止脚本...")
+    stop_be_pressed = True  # 立即设置标志
+    mover._release_all_keys()  # 立即释放按键
+    threading.Thread(target=_do_stop_action, daemon=True).start()
+
+
+def _do_pause_action():
+    """暂停/继续的实际操作（在单独线程中执行）"""
+    global continue_pressed, x, y
+    winsound.PlaySound(config_.sound3, winsound.SND_FILENAME)
+
+
+def _do_resume_action():
+    """继续运行的实际操作（在单独线程中执行）"""
+    global continue_pressed, x, y
+    winsound.PlaySound(config_.sound3, winsound.SND_FILENAME)
+    time.sleep(0.1)
+    x, y, _, _ = window_utils.get_window_rect(handle)
+    mu.do_smooth_move_to(x + 500, y + 300)
+    time.sleep(0.1)
+    mu.do_click(Button.left)
+
+
+def on_pause_hotkey():
+    """暂停/继续的热键回调 - 立即响应，耗时操作放到线程"""
+    global continue_pressed
+    logger.warning("监听到暂停/继续热键...")
+    if pause_event.is_set():
+        logger.warning("暂停运行...")
+        pause_event.clear()  # 立即暂停
+        mover._release_all_keys()  # 立即释放按键
+        threading.Thread(target=_do_pause_action, daemon=True).start()
+    else:
+        logger.warning("唤醒运行...")
+        continue_pressed = True
+        pause_event.set()  # 立即继续
+        threading.Thread(target=_do_resume_action, daemon=True).start()
+
+
+def _pynput_key_to_keyboard_key(pynput_key):
+    """将pynput的Key转换为keyboard库的键名"""
+    key_map = {
+        'Key.end': 'end',
+        'Key.delete': 'delete',
+        'Key.home': 'home',
+        'Key.insert': 'insert',
+        'Key.page_up': 'page up',
+        'Key.page_down': 'page down',
+        'Key.pause': 'pause',
+        'Key.f1': 'f1', 'Key.f2': 'f2', 'Key.f3': 'f3', 'Key.f4': 'f4',
+        'Key.f5': 'f5', 'Key.f6': 'f6', 'Key.f7': 'f7', 'Key.f8': 'f8',
+        'Key.f9': 'f9', 'Key.f10': 'f10', 'Key.f11': 'f11', 'Key.f12': 'f12',
+    }
+    key_str = str(pynput_key)
+    return key_map.get(key_str, key_str.replace('Key.', ''))
+
+
+# 当前注册的热键，用于重新注册时先取消
+_current_hotkeys = {'stop': None, 'pause': None}
+_hotkey_listener_running = False
+
+
+def _get_hotkey_config():
+    """获取热键配置"""
+    import importlib
+    # 重新加载配置模块以获取最新配置
+    importlib.reload(dnf)
+    
+    stop_key = 'end'
+    pause_key = 'delete'
+    
     try:
-        if key in current_keys_control:
-            current_keys_control.remove(key)
-    except KeyError as e:
-        logger.error(f"Error occurred: {e}")
-        pass
+        if dnf.key_stop_script:
+            for k in dnf.key_stop_script:
+                stop_key = _pynput_key_to_keyboard_key(k)
+                break
+        if dnf.key_pause_script:
+            for k in dnf.key_pause_script:
+                pause_key = _pynput_key_to_keyboard_key(k)
+                break
+    except Exception as e:
+        logger.warning(f"读取热键配置失败，使用默认值: {e}")
+    
+    return stop_key, pause_key
 
 
-# 创建一个线程来监听键盘输入
+# Windows虚拟键码映射
+_VK_CODE_MAP = {
+    'end': 0x23, 'delete': 0x2E, 'home': 0x24, 'insert': 0x2D,
+    'page up': 0x21, 'page down': 0x22, 'pause': 0x13,
+    'f1': 0x70, 'f2': 0x71, 'f3': 0x72, 'f4': 0x73,
+    'f5': 0x74, 'f6': 0x75, 'f7': 0x76, 'f8': 0x77,
+    'f9': 0x78, 'f10': 0x79, 'f11': 0x7A, 'f12': 0x7B,
+}
+
+
+def _key_to_vk(key_name):
+    """将键名转换为Windows虚拟键码"""
+    return _VK_CODE_MAP.get(key_name.lower(), 0)
+
+
+def reload_hotkeys():
+    """重新注册热键（供GUI调用）- 使用轮询方式无需重新注册"""
+    stop_key, pause_key = _get_hotkey_config()
+    logger.info(f"热键配置已更新: {stop_key}=停止, {pause_key}=暂停/继续")
+    return stop_key, pause_key
+
+
 def start_keyboard_listener():
-    with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
-        listener.join()
+    """使用Windows API轮询方式监听热键，不受游戏按键影响"""
+    import ctypes
+    global _hotkey_listener_running
+    
+    _hotkey_listener_running = True
+    user32 = ctypes.windll.user32
+    
+    # 获取热键配置
+    stop_key, pause_key = _get_hotkey_config()
+    stop_vk = _key_to_vk(stop_key)
+    pause_vk = _key_to_vk(pause_key)
+    
+    logger.info(f"已启动热键轮询监听: {stop_key}(VK={hex(stop_vk)})=停止, {pause_key}(VK={hex(pause_vk)})=暂停/继续")
+    
+    # 防抖动
+    last_stop_time = 0
+    last_pause_time = 0
+    debounce_interval = 0.3
+    
+    while not stop_be_pressed and _hotkey_listener_running:
+        current_time = time.time()
+        
+        # 检查停止键 (GetAsyncKeyState返回最高位为1表示按下)
+        if stop_vk and user32.GetAsyncKeyState(stop_vk) & 0x8000:
+            if current_time - last_stop_time >= debounce_interval:
+                last_stop_time = current_time
+                on_stop_hotkey()
+        
+        # 检查暂停键
+        if pause_vk and user32.GetAsyncKeyState(pause_vk) & 0x8000:
+            if current_time - last_pause_time >= debounce_interval:
+                last_pause_time = current_time
+                on_pause_hotkey()
+        
+        time.sleep(0.05)  # 50ms轮询间隔
 
 
 def analyse_det_result(results, hero_height, img):

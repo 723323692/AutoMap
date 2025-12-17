@@ -1,8 +1,8 @@
 {
   "game_mode": 3,
-  "account_code": 2,
-  "first_role": 34,
-  "last_role": 37,
+  "account_code": 1,
+  "first_role": 37,
+  "last_role": 40,
   "skip_role_enabled": false,
   "skip_role_list": "5,16",
   "stronger_uniform": false,
