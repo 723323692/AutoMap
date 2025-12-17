@@ -461,18 +461,20 @@ def stop_display_thread():
 
 def _do_stop_action():
     """停止脚本的实际操作（在单独线程中执行）"""
-    global stop_be_pressed
+    global stop_be_pressed, stop_signal
     winsound.PlaySound(config_.sound2, winsound.SND_FILENAME)
     stop_be_pressed = True
+    stop_signal[0] = True  # 同时设置stop_signal，停止超时检测线程
     # 立即释放所有按键
     mover._release_all_keys()
 
 
 def on_stop_hotkey():
     """停止脚本的热键回调 - 立即响应，耗时操作放到线程"""
-    global stop_be_pressed
+    global stop_be_pressed, stop_signal
     logger.warning("监听到停止热键，停止脚本...")
     stop_be_pressed = True  # 立即设置标志
+    stop_signal[0] = True  # 同时设置stop_signal，停止超时检测线程
     mover._release_all_keys()  # 立即释放按键
     threading.Thread(target=_do_stop_action, daemon=True).start()
 
@@ -890,8 +892,12 @@ def minimap_analyse(capturer):
 def adjust_stutter_alarm(start_time,role_name,role_no,fight_count,handle):
     import keyboard
     count = False
-    while not stop_signal[0]:
+    while not stop_signal[0] and not stop_be_pressed:
         time.sleep(1)
+        # 再次检查停止标志，避免在sleep期间停止后继续执行
+        if stop_be_pressed:
+            logger.debug("超时检测线程：检测到停止信号，退出")
+            return
         if (time.time() - start_time) > 60 and not count:
             logger.warning(f'第【{role_no}】个角色，【{role_name}】第【{fight_count}】次刷图,卡门【{(time.time() - start_time):.1f}】秒,尝试按键移动角色至上个门口~~~~~~')
             # 先释放所有按键，否则游戏可能不响应
@@ -899,13 +905,13 @@ def adjust_stutter_alarm(start_time,role_name,role_no,fight_count,handle):
             time.sleep(0.5)
             # 用pynput按键，和技能按键一样的方式
             kbu.do_press_with_time(dnf.Key_collect_role, 300, 200)
-            logger.info(f'已按下 numpad_7 键')
-            time.sleep(0.3)
-            # 再按一次确保生效
-            kbu.do_press_with_time(dnf.Key_collect_role, 300, 200)
-            logger.info(f'再次按下 numpad_7 键')
+            logger.info(f'已按下 numpad_7 键，返回上一地图')
             count = True
         elif (time.time() - start_time) > 100:
+            # 发送邮件前再次检查停止标志
+            if stop_be_pressed:
+                logger.debug("超时检测线程：检测到停止信号，跳过发送邮件")
+                return
             capture_window_image(handle).save(os.path.join(os.getcwd(), "mail_imgs", "alarm_mali.png"))
             email_subject = "DNF妖气助手"
             email_content = f"""运行状态实时监控\n{datetime.now().strftime('%Y年%m月%d日 %H时%M分%S秒')}\n{'自己账号' if account_code == 1 else '五子账号'}第{role_no}个角色，{role_name}第{fight_count}次刷图,{(time.time() - start_time):.1f}秒内没通关地下城,请及时查看处理。"""
@@ -924,6 +930,7 @@ def adjust_stutter_alarm(start_time,role_name,role_no,fight_count,handle):
 def main_script():
     global x, y, handle, show, game_mode, stop_signal, stop_be_pressed
     # ################### 主流程开始 ###############################
+    start_time = datetime.now()
     logger.info("_____________________准备_____________________")
     logger.info(f"脚本参数: first_role_no={first_role_no}, last_role_no={last_role_no}, account_code={account_code}")
     time.sleep(1)
@@ -937,6 +944,11 @@ def main_script():
         import traceback
         traceback.print_exc()
     finally:
+        end_time = datetime.now()
+        logger.info(f'脚本开始: {start_time.strftime("%Y-%m-%d %H:%M:%S")}')
+        logger.info(f'脚本结束: {end_time.strftime("%Y-%m-%d %H:%M:%S")}')
+        time_delta = end_time - start_time
+        logger.info(f'总计耗时: {(time_delta.total_seconds() / 60):.1f} 分钟')
         logger.info("脚本执行结束")
         mover._release_all_keys()
         
@@ -1272,7 +1284,7 @@ def _run_main_script():
 
             # 初始化
             finder = PathFinder(rows, cols, boss_room)
-            stop_signal = [False]
+            stop_signal[0] = False  # 重置超时检测标志
             threading.Thread(target=adjust_stutter_alarm, args=(one_game_start,role.name,role.no,fight_count,handle)).start()
             logger.info(f'准备打怪..')
 
@@ -2468,6 +2480,9 @@ def _run_main_script():
                     logger.warning("按下再次挑战了")
 
         # todo 循环进图结束<<<<<<<<<<<<<<<<<<<<<<<
+        
+        # 停止超时检测线程
+        stop_signal[0] = True
 
         # # 瞬移到赛丽亚房间
         # teleport_to_sailiya()
