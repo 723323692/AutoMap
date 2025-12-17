@@ -204,14 +204,15 @@ class WindowCapture:
     def _capture_dxcam(self):
         """使用 dxcam 截图，支持 DX11/DX12"""
         try:
-            # 计算截图区域（客户区在屏幕上的位置）
-            region = (
-                self.client_left,
-                self.client_top,
-                self.client_left + self.width,
-                self.client_top + self.height
-            )
-            frame = self._dxcam_camera.grab(region=region)
+            # 使用预计算的region，避免每帧重复计算
+            if not hasattr(self, '_dxcam_region'):
+                self._dxcam_region = (
+                    self.client_left,
+                    self.client_top,
+                    self.client_left + self.width,
+                    self.client_top + self.height
+                )
+            frame = self._dxcam_camera.grab(region=self._dxcam_region)
             if frame is not None:
                 np.copyto(self.buffer, frame)
                 return self.buffer

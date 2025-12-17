@@ -411,28 +411,35 @@ def display_results():
     
     while not display_stop_flag:
         try:
-            # 非阻塞获取最新帧
+            # 阻塞等待新帧，超时100ms检查一次停止标志
             frame = None
             try:
-                # 获取队列中所有帧，只保留最新的
-                while True:
-                    frame = result_queue.get_nowait()
-                    if frame is None:
-                        display_stop_flag = True
+                frame = result_queue.get(timeout=0.1)
+                if frame is None:
+                    display_stop_flag = True
+                    break
+                # 丢弃旧帧，只保留最新的
+                while not result_queue.empty():
+                    try:
+                        newer_frame = result_queue.get_nowait()
+                        if newer_frame is None:
+                            display_stop_flag = True
+                            break
+                        frame = newer_frame
+                    except queue.Empty:
                         break
             except queue.Empty:
-                pass
+                # 超时，继续循环检查停止标志
+                if last_frame is not None:
+                    cv2.waitKey(1)  # 保持窗口响应
+                continue
             
             if display_stop_flag:
                 break
                 
-            # 有新帧就更新，没有就用上一帧
+            # 更新帧
             if frame is not None:
                 last_frame = frame
-            
-            if last_frame is None:
-                cv2.waitKey(30)
-                continue
 
             # 创建窗口
             if not window_created:
@@ -444,8 +451,8 @@ def display_results():
             # 显示
             cv2.imshow(window_name, last_frame)
             
-            # waitKey 控制刷新率，约30fps
-            if cv2.waitKey(33) & 0xFF == ord('q'):
+            # waitKey 控制刷新率
+            if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
                 
         except Exception as e:
@@ -1344,17 +1351,19 @@ def _run_main_script():
             in_boss_room = False
 
             frame_time = time.time()
+            frame_interval = 1.0 / max_fps if max_fps else 0
             while True:  # 循环打怪过图
                 # 检查停止标志
                 if stop_be_pressed:
                     logger.warning("检测到停止信号，退出打怪循环...")
                     break
                 
-                # 限制处理速率
-                if max_fps:
-                    if time.time() - frame_time < 1.0 / max_fps:
-                        time.sleep(0.02)
-                        continue
+                # 限制处理速率 - 精确等待到下一帧时间
+                if frame_interval:
+                    elapsed = time.time() - frame_time
+                    if elapsed < frame_interval:
+                        # 直接sleep剩余时间，避免频繁轮询
+                        time.sleep(frame_interval - elapsed)
                     frame_time = time.time()
 
                 pause_event.wait()  # 暂停
@@ -1367,7 +1376,8 @@ def _run_main_script():
                 cv_det_task = None
                 if boss_appeared or in_boss_room or boss_door_appeared or game_mode == 2:
                     cv_det_task = img_executor.submit(object_detection_cv, img0)
-                img4show = img0.copy()
+                # 只在需要展示时复制图像，减少CPU开销
+                img4show = img0.copy() if show else img0
                 # 执行推理
                 results = model.predict(
                     source=img0,
