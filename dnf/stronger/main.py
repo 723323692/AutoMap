@@ -1824,9 +1824,14 @@ def _run_main_script():
 
                     # 门在命中范围内,等待过图即可
                     if door_in_range:
-                        # 不管了,全部释放掉
-                        mover._release_all_keys()
-                        logger.info("门在命中范围内,等待过图")
+                        # 上下门需要持续按住方向键才能过门，不能停下来
+                        if next_room_direction in ('UP', 'DOWN'):
+                            logger.info(f"门在命中范围内,继续往{next_room_direction}走过门")
+                            mover.move(target_direction=next_room_direction)
+                        else:
+                            # 左右门可以释放按键等待过图
+                            mover._release_all_keys()
+                            logger.info("门在命中范围内,等待过图")
                         time.sleep(0.1)
                         if stuck_room_idx is not None:
                             # todo 除歼灭不存在 跳过材料时无卡住的逻辑
