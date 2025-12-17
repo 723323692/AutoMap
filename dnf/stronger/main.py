@@ -184,26 +184,62 @@ model_obstacle = None  # 障碍物检测模型
 device = None
 weights_obstacle = os.path.join(config_.project_base_path, 'weights', 'obstacle.pt')
 
+def _select_best_gpu():
+    """选择最佳GPU设备，优先选择独立显卡"""
+    if not torch.cuda.is_available():
+        return torch.device("cpu"), "CPU"
+    
+    gpu_count = torch.cuda.device_count()
+    if gpu_count == 1:
+        name = torch.cuda.get_device_name(0)
+        return torch.device("cuda:0"), name
+    
+    # 多GPU时，选择显存最大的（通常是独显）
+    best_idx = 0
+    best_memory = 0
+    for i in range(gpu_count):
+        props = torch.cuda.get_device_properties(i)
+        name = props.name.lower()
+        # 跳过核显（Intel/AMD集成显卡）
+        if 'intel' in name or 'integrated' in name:
+            continue
+        if props.total_memory > best_memory:
+            best_memory = props.total_memory
+            best_idx = i
+    
+    name = torch.cuda.get_device_name(best_idx)
+    return torch.device(f"cuda:{best_idx}"), name
+
+
 def get_model():
     """延迟加载YOLO模型"""
     global model, model_obstacle, device
     if model is None:
         import time as _time
         t0 = _time.time()
-        logger.info("正在加载YOLO模型...")
+        
+        # 先选择设备
+        device, device_name = _select_best_gpu()
+        logger.info(f"选择计算设备: {device} ({device_name})")
+        
+        # 加载主模型并移动到指定设备
+        logger.info("正在加载主推理模型...")
         model = YOLO(weights)
-        device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-        # 加载障碍物检测模型
+        model.to(device)
+        
+        # 加载障碍物检测模型并移动到同一设备
         if os.path.exists(weights_obstacle):
-            logger.info("正在加载障碍物检测模型...")
+            logger.info("正在加载障碍物模型...")
             model_obstacle = YOLO(weights_obstacle)
+            model_obstacle.to(device)
+        
         # 模型预热，让首次推理更快
         logger.info("模型预热中...")
         dummy_img = np.zeros((640, 640, 3), dtype=np.uint8)
         model.predict(source=dummy_img, device=device, verbose=False)
         if model_obstacle:
             model_obstacle.predict(source=dummy_img, device=device, verbose=False)
-        logger.info(f"模型加载完成，使用设备: {device}，耗时: {_time.time()-t0:.1f}秒")
+        logger.info(f"模型加载完成，使用设备: {device} ({device_name})，耗时: {_time.time()-t0:.1f}秒")
     return model, device
 # if device.type != 'cpu':
 #     model.half()  # to FP16
