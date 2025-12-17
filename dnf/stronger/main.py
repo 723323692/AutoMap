@@ -1082,7 +1082,14 @@ def _run_main_script():
             kbu.do_press(Key.right)
             safe_sleep(0.2)
             kbu.do_press(Key.space)
-            safe_sleep(0.2)
+            # 等待进入游戏
+            safe_sleep(3)
+            # 多次检测弹窗
+            for _ in range(3):
+                if close_new_day_dialog(handle, x, y, capturer):
+                    safe_sleep(0.5)
+                    break
+                safe_sleep(0.5)
             continue
         
         # 检查是否超过结束角色
@@ -1090,10 +1097,13 @@ def _run_main_script():
             logger.warning(f'已到达结束角色【{last_role_no}】，退出循环')
             break
         
-        # 检查并关闭0点弹窗（只在角色真正开始执行前检测）
+        # 检查并关闭0点弹窗（多次检测，因为弹窗可能延迟出现）
         try:
-            if close_new_day_dialog(handle, x, y):
-                safe_sleep(0.5)  # 关闭弹窗后等待一下
+            for _ in range(3):
+                if close_new_day_dialog(handle, x, y, capturer):
+                    safe_sleep(0.5)  # 关闭弹窗后等待一下
+                    break
+                safe_sleep(0.5)
         except Exception as e:
             logger.warning(f"检测0点弹窗失败: {e}")
             
@@ -2606,7 +2616,14 @@ def _run_main_script():
             kbu.do_press(Key.right)
             safe_sleep(0.2)
             kbu.do_press(Key.space)
-            safe_sleep(0.2)
+            # 等待进入游戏
+            safe_sleep(3)
+            # 多次检测弹窗
+            for _ in range(3):
+                if close_new_day_dialog(handle, x, y, capturer):
+                    safe_sleep(0.5)
+                    break
+                safe_sleep(0.5)
         else:
             logger.warning("已经刷完最后一个角色了，结束脚本")
             mode_name = (

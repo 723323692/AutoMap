@@ -278,10 +278,18 @@ class WindowCapture:
                 self._dxcam_camera = None
             
             # 释放 GDI 资源
-            win32gui.DeleteObject(self.bitmap.GetHandle())
-            self.mem_dc.DeleteDC()
-            self.dc.DeleteDC()
-            win32gui.ReleaseDC(self.hwnd, self.wdc)
+            try:
+                win32gui.DeleteObject(self.bitmap.GetHandle())
+            except:
+                pass
+            try:
+                self.mem_dc.DeleteDC()
+            except:
+                pass
+            try:
+                win32gui.ReleaseDC(self.hwnd, self.wdc)
+            except:
+                pass
         finally:
             self._released = True
 

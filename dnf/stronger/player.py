@@ -1126,30 +1126,54 @@ def receive_mail(img, x, y):
         logger.error('领邮件出错', e)
 
 
-def close_new_day_dialog(handle, x, y):
+def close_new_day_dialog(handle, x, y, capturer=None):
     """
-    关闭0点弹窗
+    关闭0点弹窗/活动弹窗
     检测时机：脚本开始，换角色，出图后，
+    :param capturer: WindowCapture实例，如果为None则创建临时实例
     :return: True 如果检测到并关闭了弹窗，False 如果没有检测到弹窗
     """
-    full_screen = window_utils.capture_window_BGRX(handle)
+    # 使用WindowCapture截图（支持DX游戏）
+    if capturer is None:
+        capturer = window_utils.WindowCapture(handle)
+        temp_capturer = True
+    else:
+        temp_capturer = False
     
-    # 先检测"关闭"按钮
-    template_btn_close = cv2.imread(os.path.normpath(f'{config_.project_base_path}/assets/img/dialog-btn-close.png'), cv2.IMREAD_GRAYSCALE)
-    matched1 = match_and_click(full_screen, x, y, template_btn_close, None)
-    if matched1:
-        logger.info("检测到弹窗，已关闭")
-        return True
+    try:
+        full_screen = capturer.capture()
+        # 转换为BGRA格式
+        if full_screen.shape[2] == 3:
+            full_screen = cv2.cvtColor(full_screen, cv2.COLOR_BGR2BGRA)
+        
+        # 先检测"X"按钮（小按钮，匹配率更高）
+        template_btn_x = cv2.imread(os.path.normpath(f'{config_.project_base_path}/assets/img/dialog-btn-X.png'), cv2.IMREAD_GRAYSCALE)
+        if template_btn_x is not None:
+            matched1 = match_and_click(full_screen, x, y, template_btn_x, None, threshold=0.85)
+            if matched1:
+                logger.info("检测到弹窗（X按钮），已关闭")
+                return True
 
-    # 再检测"X"按钮
-    full_screen = window_utils.capture_window_BGRX(handle)
-    template_btn_x = cv2.imread(os.path.normpath(f'{config_.project_base_path}/assets/img/dialog-btn-X.png'), cv2.IMREAD_GRAYSCALE)
-    matched2 = match_and_click(full_screen, x, y, template_btn_x, None)
-    if matched2:
-        logger.info("检测到弹窗，已关闭")
-        return True
-    
-    return False
+        # 检测"关闭"按钮
+        template_btn_close = cv2.imread(os.path.normpath(f'{config_.project_base_path}/assets/img/dialog-btn-close.png'), cv2.IMREAD_GRAYSCALE)
+        if template_btn_close is not None:
+            matched2 = match_and_click(full_screen, x, y, template_btn_close, None, threshold=0.75)
+            if matched2:
+                logger.info("检测到弹窗（关闭按钮），已关闭")
+                return True
+        
+        # 检测"确认"按钮（活动弹窗常用）
+        template_btn_confirm = cv2.imread(os.path.normpath(f'{config_.project_base_path}/assets/img/dialog-btn-confirm.png'), cv2.IMREAD_GRAYSCALE)
+        if template_btn_confirm is not None:
+            matched3 = match_and_click(full_screen, x, y, template_btn_confirm, None, threshold=0.75)
+            if matched3:
+                logger.info("检测到弹窗（确认按钮），已关闭")
+                return True
+        
+        return False
+    finally:
+        if temp_capturer:
+            capturer.release()
 
 
 if __name__ == '__main__':
