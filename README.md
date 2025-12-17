@@ -4,171 +4,151 @@ Dungeons and Baby Bus - DNF自动化脚本
 
 ## 功能特性
 
-- 🎮 支持深渊模式和强化模式
-- 🤖 基于YOLO的目标检测
+- 🎮 支持妖气追踪、白图、深渊等多种模式
+- 🤖 基于YOLOv8的目标检测
 - 🔄 自动角色切换和任务执行
-- 📧 邮件通知功能
+- 📧 邮件通知功能（超时提醒、任务完成通知）
 - 🛡️ 卡死检测和自动恢复
 - 🛒 神秘商店自动购买
-- ⚙️ JSON配置支持
+- ⚙️ GUI图形界面配置
+- 🎯 热键控制（F10启动/Delete暂停/End停止）
 
 ## 环境要求
 
-- Python 3.10.x
+- Python >= 3.10
 - Windows 10/11
-- 游戏窗口化运行
+- NVIDIA显卡（推荐，支持CUDA加速）
+- 游戏窗口化运行（1067x600）
 
 ## 快速开始
 
-### 1. 安装 Miniconda
+### 方式一：自动安装（推荐）
 
-如果没有安装 Conda，请先下载安装 Miniconda：
-- 下载地址：https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe
-- 安装时勾选"Add to PATH"选项
+1. 双击运行 `install.bat`
+2. 选择CUDA版本（根据显卡驱动选择）
+3. 等待安装完成
+4. 双击 `start.gui.bat` 启动
 
-### 2. 创建虚拟环境
+### 方式二：手动安装
+
+#### 1. 安装 Miniconda
+
+下载地址：https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe
+
+#### 2. 创建虚拟环境
 
 ```bash
-# 创建 yolov8 环境
 conda create -n yolov8 python=3.10 -y
-
-# 激活环境
 conda activate yolov8
 ```
 
-### 3. 安装依赖
+#### 3. 安装PyTorch（GPU版本）
 
 ```bash
-# 先升级 pip（重要！）
-python -m pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple
+# CUDA 11.8
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
 
-# 使用清华镜像源安装依赖
+# 或 CUDA 12.1
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+```
+
+#### 4. 安装其他依赖
+
+```bash
 pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-
-# 安装 PyQt5（GUI需要）
-pip install PyQt5 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
-### 4. 修复 OpenCV（如有问题）
+#### 5. 检查环境
 
 ```bash
-pip uninstall opencv-python-headless opencv-python -y
-pip install opencv-python -i https://pypi.tuna.tsinghua.edu.cn/simple
+python check_env.py
 ```
 
-### 5. 启动程序
+### 启动程序
 
 双击 `start.gui.bat` 启动图形界面。
+
+## 使用说明
+
+### 热键控制
+
+| 热键 | 功能 |
+|------|------|
+| F10 | 启动脚本 |
+| Delete | 暂停/继续 |
+| End | 停止脚本 |
+
+### 游戏模式
+
+- **妖气追踪**：自动刷妖气追踪地图
+- **白图**：自动刷跌宕群岛
+- **每日1+1**：自动完成每日1+1任务
+- **深渊**：自动刷深渊
+
+### 角色配置
+
+在GUI中可以配置：
+- 起始/结束角色编号
+- 跳过指定角色
+- 疲劳值预留
+- 购买设置（罐子、铃铛、催化剂等）
 
 ## 配置说明
 
 ### 邮件通知配置
 
-创建 `.env` 文件：
+创建 `.env` 文件（参考 `.env.example`）：
 
-```bash
-cp .env.example .env
-# 编辑 .env 文件填入配置
+```env
+DNF_MAIL_SENDER=your_email@qq.com
+DNF_MAIL_PASSWORD=your_authorization_code
+DNF_MAIL_RECEIVER=receiver@qq.com
+DNF_SMTP_SERVER=smtp.qq.com
+DNF_SMTP_PORT=465
 ```
-
-或设置系统环境变量：
-
-```powershell
-$env:DNF_MAIL_SENDER = "your_email@qq.com"
-$env:DNF_MAIL_PASSWORD = "your_authorization_code"
-$env:DNF_MAIL_RECEIVER = "receiver@qq.com"
-```
-
-环境变量说明：
-| 变量名 | 说明 | 默认值 |
-|--------|------|--------|
-| `DNF_MAIL_SENDER` | 发件人邮箱 | - |
-| `DNF_MAIL_PASSWORD` | 邮箱授权码 | - |
-| `DNF_MAIL_RECEIVER` | 收件人邮箱 | - |
-| `DNF_SMTP_SERVER` | SMTP服务器 | smtp.qq.com |
-| `DNF_SMTP_PORT` | SMTP端口 | 465 |
 
 ### 神秘商店购买配置
 
-在 `main.py` 中配置购买选项：
+在GUI的"购买设置"中配置，或在代码中设置：
 
 ```python
-# 买罐子: 0不买，1传说，2史诗，3史诗+传说
-buy_tank_type = 0
-
-# 买铃铛: 0不买，1粉，2传说，3粉+传说
-buy_bell_ticket = 0
-
-# 买闪闪明: 0不买，1粉，2传说，3粉+传说
-buy_shanshanming = 2
-
-# 买催化剂: 0不买，1传说，2史诗，3太初，4传说+史诗，5史诗+太初，6传说+太初，7全部
-buy_catalyst = 0
-```
-
-### 角色配置
-
-支持JSON文件配置角色，放置于 `dnf/stronger/roles/` 目录：
-
-```json
-{
-  "name": "角色名",
-  "height": 50,
-  "skills": ["a", "s", "d", "f"],
-  "buff_skills": ["q", "w"]
-}
-```
-
-## 运行
-
-### GUI模式（推荐）
-
-双击 `start.gui.bat` 启动图形界面，支持：
-- 可视化配置参数
-- 实时日志显示
-- 热键控制（F10启动/Delete暂停/End停止）
-
-### 命令行模式
-
-```powershell
-# 激活环境
-conda activate yolov8
-
-# 启动GUI
-python gui_app.py
-
-# 深渊模式
-.\start.abyss.bat
-
-# 强化模式
-.\start.stronger.bat
+buy_tank_type = 0      # 罐子: 0不买，1传说，2史诗，3全部
+buy_bell_ticket = 0    # 铃铛: 0不买，1粉，2传说，3全部
+buy_shanshanming = 2   # 闪闪明: 0不买，1粉，2传说，3全部
+buy_catalyst = 7       # 催化剂: 0不买，1传说，2史诗，3太初，7全部
 ```
 
 ## 项目结构
 
 ```
 BabyBus/
-├── dnf/                      # 核心模块
-│   ├── common.py            # 公共代码
-│   ├── constants.py         # 常量定义
-│   ├── abyss/               # 深渊模式
-│   └── stronger/            # 强化模式
-│       ├── movement_helper.py   # 移动辅助
-│       ├── stuck_detector.py    # 卡死检测
-│       └── role_loader.py       # 配置加载
-├── utils/                    # 工具模块
-│   ├── utilities.py         # 图像处理
-│   ├── keyboard_utils.py    # 键盘操作
-│   ├── window_utils.py      # 窗口截图
-│   └── mail_sender.py       # 邮件发送
-├── weights/                  # YOLO模型
-└── assets/                   # 资源文件
-    └── img/                 # 模板图片
+├── gui_app.py           # GUI主程序
+├── start.gui.bat        # 启动脚本
+├── install.bat          # 安装脚本
+├── check_env.py         # 环境检查脚本
+├── requirements.txt     # 依赖列表
+├── dnf/                 # 核心模块
+│   ├── stronger/        # 妖气追踪/白图模式
+│   ├── abyss/           # 深渊模式
+│   └── dnf_config.py    # 游戏配置
+├── utils/               # 工具模块
+│   ├── window_utils.py  # 窗口截图
+│   ├── keyboard_utils.py # 键盘操作
+│   └── mail_sender.py   # 邮件发送
+├── weights/             # YOLO模型权重
+└── assets/              # 资源文件
 ```
 
-详细文档请参阅 [MAINTENANCE.md](MAINTENANCE.md)
-
 ## 常见问题
+
+**Q: 启动报错"未找到Python环境"**
+- 运行 `python check_env.py` 检查环境
+- 确保Python >= 3.10
+
+**Q: CUDA不可用**
+- 检查NVIDIA驱动是否安装
+- 确认安装了GPU版本的PyTorch
+- 运行 `python -c "import torch; print(torch.cuda.is_available())"`
 
 **Q: 邮件发送失败**
 - 检查 `.env` 配置是否正确
@@ -176,15 +156,12 @@ BabyBus/
 
 **Q: 窗口截图黑屏**
 - 确保游戏窗口化运行
-- 检查是否有其他程序遮挡
+- 窗口大小设置为1067x600
 
 **Q: 角色卡住不动**
 - 脚本内置卡死检测，会自动尝试恢复
-- 可调整 `movement_helper.py` 中的移动参数
-
-**Q: 神秘商店物品识别不到**
-- 检查 `assets/img/` 下对应模板图片是否存在
-- 调整模板匹配阈值（默认0.85）
+- 超过60秒会尝试返回上一地图
+- 超过100秒会发送邮件提醒
 
 ## 许可证
 
@@ -198,14 +175,9 @@ BabyBus/
 ## 作者
 
 [冷兔](https://github.com/723323692)
-
-- Email: 723323692@qq.com /  zzs1999bd@163.com
-- GitHub: https://github.com/723323692
+- Email: 723323692@qq.com / zzs1999bd@163.com
 
 [甘霖](https://github.com/nianling)
-
-- Email: wemean66@gmail.com, nianlingbeige@163.com
-- GitHub: GitHub: https://github.com/nianling
-
+- Email: wemean66@gmail.com / nianlingbeige@163.com
 
 完整许可证见 [LICENSE](LICENSE) 文件。
