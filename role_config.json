@@ -1,4 +1,8 @@
 {
+  "account_names": {
+    "account1": "自己账号",
+    "account2": "五子账号"
+  },
   "account1": [
     {
       "name": "瞎子",
@@ -1384,8 +1388,78 @@
       "white_map_level": 2
     },
     {
-      "name": "奶枪",
+      "name": "暗帝",
       "no": 23,
+      "buffs": [
+        [
+          "Key.right",
+          "Key.right",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        }
+      ],
+      "height": 149,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "h"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "奶枪",
+      "no": 24,
       "buffs": [
         [
           "Key.right",
@@ -1451,7 +1525,7 @@
     },
     {
       "name": "奇美拉",
-      "no": 24,
+      "no": 25,
       "buffs": [
         [
           "Key.right",
@@ -1538,7 +1612,7 @@
     },
     {
       "name": "奶妈2",
-      "no": 25,
+      "no": 26,
       "buffs": [
         [
           "Key.right",
@@ -1604,7 +1678,7 @@
     },
     {
       "name": "漫游",
-      "no": 26,
+      "no": 27,
       "buffs": [
         [
           "Key.right",
@@ -1658,7 +1732,7 @@
     },
     {
       "name": "魔道",
-      "no": 27,
+      "no": 28,
       "buffs": [
         [
           "Key.up",
@@ -1743,7 +1817,7 @@
     },
     {
       "name": "大枪",
-      "no": 28,
+      "no": 29,
       "buffs": [
         [
           "Key.right",
@@ -1801,7 +1875,7 @@
     },
     {
       "name": "女散打",
-      "no": 29,
+      "no": 30,
       "buffs": [
         [
           "Key.right",
@@ -1871,7 +1945,7 @@
     },
     {
       "name": "机械",
-      "no": 30,
+      "no": 31,
       "buffs": [
         [
           "Key.right",
@@ -1985,7 +2059,7 @@
     },
     {
       "name": "空姐",
-      "no": 31,
+      "no": 32,
       "buffs": [
         [
           "Key.right",
@@ -2059,72 +2133,6 @@
     },
     {
       "name": "花花2",
-      "no": 32,
-      "buffs": [
-        [
-          "Key.up",
-          "Key.up",
-          "Key.space"
-        ]
-      ],
-      "candidate_hotkeys": [
-        "x"
-      ],
-      "custom_priority_skills": [
-        {
-          "type": "str",
-          "value": "s"
-        },
-        {
-          "type": "str",
-          "value": "w"
-        },
-        {
-          "type": "str",
-          "value": "e"
-        },
-        {
-          "type": "str",
-          "value": "r"
-        },
-        {
-          "type": "str",
-          "value": "t"
-        },
-        {
-          "type": "str",
-          "value": "q"
-        },
-        {
-          "type": "str",
-          "value": "d"
-        },
-        {
-          "type": "str",
-          "value": "a"
-        }
-      ],
-      "height": 141,
-      "fatigue_all": 188,
-      "fatigue_reserved": 0,
-      "attack_center_x": 0,
-      "attack_range_x": 0,
-      "attack_range_y": 0,
-      "buff_effective": false,
-      "powerful_skills": [
-        {
-          "type": "key",
-          "value": "Key.ctrl_l"
-        },
-        {
-          "type": "str",
-          "value": "f"
-        }
-      ],
-      "white_map_level": 2
-    },
-    {
-      "name": "花花3",
       "no": 33,
       "buffs": [
         [
@@ -2190,8 +2198,74 @@
       "white_map_level": 2
     },
     {
-      "name": "猎人",
+      "name": "花花3",
       "no": 34,
+      "buffs": [
+        [
+          "Key.up",
+          "Key.up",
+          "Key.space"
+        ]
+      ],
+      "candidate_hotkeys": [
+        "x"
+      ],
+      "custom_priority_skills": [
+        {
+          "type": "str",
+          "value": "s"
+        },
+        {
+          "type": "str",
+          "value": "w"
+        },
+        {
+          "type": "str",
+          "value": "e"
+        },
+        {
+          "type": "str",
+          "value": "r"
+        },
+        {
+          "type": "str",
+          "value": "t"
+        },
+        {
+          "type": "str",
+          "value": "q"
+        },
+        {
+          "type": "str",
+          "value": "d"
+        },
+        {
+          "type": "str",
+          "value": "a"
+        }
+      ],
+      "height": 141,
+      "fatigue_all": 188,
+      "fatigue_reserved": 0,
+      "attack_center_x": 0,
+      "attack_range_x": 0,
+      "attack_range_y": 0,
+      "buff_effective": false,
+      "powerful_skills": [
+        {
+          "type": "key",
+          "value": "Key.ctrl_l"
+        },
+        {
+          "type": "str",
+          "value": "f"
+        }
+      ],
+      "white_map_level": 2
+    },
+    {
+      "name": "猎人",
+      "no": 35,
       "buffs": [
         [
           "Key.up",
@@ -2250,7 +2324,7 @@
     },
     {
       "name": "关羽",
-      "no": 35,
+      "no": 36,
       "buffs": [
         [
           "Key.up",
@@ -2321,7 +2395,7 @@
     },
     {
       "name": "男弹药",
-      "no": 36,
+      "no": 37,
       "buffs": [
         [
           "Key.right",
@@ -2383,7 +2457,7 @@
     },
     {
       "name": "漫游2",
-      "no": 37,
+      "no": 38,
       "buffs": [
         [
           "Key.right",
@@ -2422,14 +2496,6 @@
         {
           "type": "str",
           "value": "d"
-        },
-        {
-          "type": "str",
-          "value": "g"
-        },
-        {
-          "type": "str",
-          "value": "h"
         }
       ],
       "height": 170,
@@ -2449,7 +2515,7 @@
     },
     {
       "name": "帕拉丁",
-      "no": 38,
+      "no": 39,
       "buffs": [
         [
           "Key.right",
@@ -2507,7 +2573,7 @@
     },
     {
       "name": "专家",
-      "no": 39,
+      "no": 40,
       "buffs": [
         [
           "Key.left",
@@ -2595,7 +2661,7 @@
     },
     {
       "name": "特工2",
-      "no": 40,
+      "no": 41,
       "buffs": [
         [
           "Key.left",
@@ -2938,7 +3004,7 @@
       "attack_center_x": 0,
       "attack_range_x": 0,
       "attack_range_y": 0,
-      "buff_effective": false,
+      "buff_effective": true,
       "powerful_skills": [
         {
           "type": "str",

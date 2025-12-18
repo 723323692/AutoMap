@@ -23,7 +23,7 @@ from PyQt5.QtWidgets import (
     QPushButton, QTextEdit, QRadioButton, QButtonGroup, QTableWidget,
     QTableWidgetItem, QHeaderView, QMessageBox, QDialog, QLineEdit,
     QFormLayout, QDialogButtonBox, QScrollArea, QProgressDialog,
-    QListWidget, QListWidgetItem, QDoubleSpinBox
+    QListWidget, QListWidgetItem, QDoubleSpinBox, QInputDialog
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QObject, QTimer, QTime
 from PyQt5.QtGui import QFont, QTextCursor, QIcon, QPalette, QLinearGradient, QColor, QBrush
@@ -49,6 +49,9 @@ class NoScrollDoubleSpinBox(QDoubleSpinBox):
     """禁用滚轮的DoubleSpinBox"""
     def wheelEvent(self, event):
         event.ignore()
+
+
+
 
 
 class StdoutRedirector(QObject):
@@ -723,6 +726,11 @@ class SkillRowWidget(QWidget):
             }
 
 
+class PowerfulSkillRowWidget(SkillRowWidget):
+    """高伤技能行组件（继承自SkillRowWidget，支持所有技能类型）"""
+    pass
+
+
 class RoleEditDialog(QDialog):
     """角色编辑对话框"""
     def __init__(self, parent=None, role_data=None, default_no=1):
@@ -741,7 +749,7 @@ class RoleEditDialog(QDialog):
         
         # 角色编号
         self.no_spin = NoScrollSpinBox()
-        self.no_spin.setRange(1, 100)
+        self.no_spin.setRange(1, 999)
         self.no_spin.setValue(self.role_data.get('no', self.default_no))
         form_layout.addRow("角色编号:", self.no_spin)
         
@@ -802,9 +810,7 @@ class RoleEditDialog(QDialog):
         add_str_btn.clicked.connect(lambda: self._add_skill_row({'type': 'str'}))
         add_btn_layout.addWidget(add_str_btn)
         
-        add_key_btn = QPushButton("+ 特殊按键")
-        add_key_btn.clicked.connect(lambda: self._add_skill_row({'type': 'key'}))
-        add_btn_layout.addWidget(add_key_btn)
+
         
         add_detonate_btn = QPushButton("+ 引爆技能")
         add_detonate_btn.clicked.connect(lambda: self._add_skill_row({'type': 'detonate'}))
@@ -834,6 +840,36 @@ class RoleEditDialog(QDialog):
         skill_group_layout.addWidget(self.skill_status_label)
         
         layout.addWidget(skill_group)
+        
+        # 高伤技能列表
+        powerful_group = QGroupBox("高伤技能 (大招)")
+        powerful_group_layout = QVBoxLayout(powerful_group)
+        
+        # 高伤技能滚动区域
+        powerful_scroll = QScrollArea()
+        powerful_scroll.setWidgetResizable(True)
+        powerful_scroll.setMaximumHeight(100)
+        
+        self.powerful_container = QWidget()
+        self.powerful_layout = QVBoxLayout(self.powerful_container)
+        self.powerful_layout.setSpacing(2)
+        self.powerful_layout.addStretch()
+        powerful_scroll.setWidget(self.powerful_container)
+        powerful_group_layout.addWidget(powerful_scroll)
+        
+        # 加载已有高伤技能
+        self.powerful_rows = []
+        self._load_existing_powerful_skills()
+        
+        # 添加高伤技能按钮
+        powerful_btn_layout = QHBoxLayout()
+        add_powerful_btn = QPushButton("+ 添加高伤技能")
+        add_powerful_btn.clicked.connect(self._add_powerful_skill_row)
+        powerful_btn_layout.addWidget(add_powerful_btn)
+        powerful_btn_layout.addStretch()
+        powerful_group_layout.addLayout(powerful_btn_layout)
+        
+        layout.addWidget(powerful_group)
         
         # 确定取消按钮
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -901,6 +937,38 @@ class RoleEditDialog(QDialog):
                 result.append(data)
         return result
     
+    def _load_existing_powerful_skills(self):
+        """加载已有高伤技能"""
+        skills = self.role_data.get('powerful_skills', [])
+        for s in skills:
+            if isinstance(s, str):
+                self._add_powerful_skill_row({'type': 'str', 'value': s})
+            elif isinstance(s, dict):
+                self._add_powerful_skill_row(s)
+    
+    def _add_powerful_skill_row(self, skill_data=None):
+        """添加一行高伤技能"""
+        row = PowerfulSkillRowWidget(skill_data, self)
+        row.deleted.connect(self._remove_powerful_skill_row)
+        self.powerful_rows.append(row)
+        self.powerful_layout.insertWidget(self.powerful_layout.count() - 1, row)
+    
+    def _remove_powerful_skill_row(self, row):
+        """删除高伤技能行"""
+        if row in self.powerful_rows:
+            self.powerful_rows.remove(row)
+            self.powerful_layout.removeWidget(row)
+            row.deleteLater()
+    
+    def _get_powerful_skills(self):
+        """获取所有高伤技能数据"""
+        result = []
+        for row in self.powerful_rows:
+            data = row.get_data()
+            if data:
+                result.append(data)
+        return result
+    
     def get_data(self):
         """获取完整的角色数据"""
         return {
@@ -916,7 +984,7 @@ class RoleEditDialog(QDialog):
             'attack_range_x': self.role_data.get('attack_range_x', 0),
             'attack_range_y': self.role_data.get('attack_range_y', 0),
             'buff_effective': self.buff_check.isChecked(),
-            'powerful_skills': self.role_data.get('powerful_skills', []),
+            'powerful_skills': self._get_powerful_skills(),
             'white_map_level': self.role_data.get('white_map_level', 2)
         }
 
@@ -978,7 +1046,7 @@ class MainWindow(QMainWindow):
         
         self.tabs.addTab(self._create_stronger_tab(), "妖气追踪/白图")
         self.tabs.addTab(self._create_abyss_tab(), "深渊模式")
-        self.tabs.addTab(self._create_role_tab(), "角色列表")
+        self.tabs.addTab(self._create_role_tab(), "账号||角色配置")
         self.tabs.addTab(self._create_key_config_tab(), "按键配置")
         self.tabs.addTab(self._create_skill_bar_tab(), "技能栏配置")
         self.tabs.addTab(self._create_settings_tab(), "设置")
@@ -1072,14 +1140,9 @@ class MainWindow(QMainWindow):
         lbl_acc = QLabel("账号类型:")
         lbl_acc.setFixedWidth(lbl_w)
         acc_layout.addWidget(lbl_acc)
-        self.acc_group = QButtonGroup()
-        self.acc_self = QRadioButton("自己账号")
-        self.acc_self.setChecked(True)
-        self.acc_five = QRadioButton("五子账号")
-        self.acc_group.addButton(self.acc_self, 1)
-        self.acc_group.addButton(self.acc_five, 2)
-        acc_layout.addWidget(self.acc_self)
-        acc_layout.addWidget(self.acc_five)
+        self.stronger_account_combo = QComboBox()
+        self.stronger_account_combo.setMinimumWidth(150)
+        acc_layout.addWidget(self.stronger_account_combo)
         acc_layout.addStretch()
         role_layout.addLayout(acc_layout)
         
@@ -1211,14 +1274,9 @@ class MainWindow(QMainWindow):
         lbl_acc = QLabel("账号类型:")
         lbl_acc.setFixedWidth(lbl_w)
         acc_layout.addWidget(lbl_acc)
-        self.abyss_acc_group = QButtonGroup()
-        self.abyss_acc_self = QRadioButton("自己账号")
-        self.abyss_acc_self.setChecked(True)
-        self.abyss_acc_five = QRadioButton("五子账号")
-        self.abyss_acc_group.addButton(self.abyss_acc_self, 1)
-        self.abyss_acc_group.addButton(self.abyss_acc_five, 2)
-        acc_layout.addWidget(self.abyss_acc_self)
-        acc_layout.addWidget(self.abyss_acc_five)
+        self.abyss_account_combo = QComboBox()
+        self.abyss_account_combo.setMinimumWidth(150)
+        acc_layout.addWidget(self.abyss_account_combo)
         acc_layout.addStretch()
         role_layout.addLayout(acc_layout)
         
@@ -1336,16 +1394,27 @@ class MainWindow(QMainWindow):
         # 账号选择和操作按钮
         top_layout = QHBoxLayout()
         top_layout.addWidget(QLabel("选择账号:"))
-        self.role_acc_group = QButtonGroup()
-        self.role_acc_self = QRadioButton("自己账号")
-        self.role_acc_self.setChecked(True)
-        self.role_acc_self.toggled.connect(self.refresh_role_table)
-        self.role_acc_five = QRadioButton("五子账号")
-        self.role_acc_five.toggled.connect(self.refresh_role_table)
-        self.role_acc_group.addButton(self.role_acc_self, 1)
-        self.role_acc_group.addButton(self.role_acc_five, 2)
-        top_layout.addWidget(self.role_acc_self)
-        top_layout.addWidget(self.role_acc_five)
+        
+        # 账号选择下拉框
+        self.account_combo = QComboBox()
+        self.account_combo.setMinimumWidth(150)
+        self._refresh_account_combo()
+        self.account_combo.currentIndexChanged.connect(self.refresh_role_table)
+        top_layout.addWidget(self.account_combo)
+        
+        # 账号管理按钮
+        add_acc_btn = QPushButton("添加账号")
+        add_acc_btn.clicked.connect(self.add_account)
+        top_layout.addWidget(add_acc_btn)
+        
+        rename_acc_btn = QPushButton("重命名")
+        rename_acc_btn.clicked.connect(self.rename_account)
+        top_layout.addWidget(rename_acc_btn)
+        
+        del_acc_btn = QPushButton("删除账号")
+        del_acc_btn.clicked.connect(self.delete_account)
+        top_layout.addWidget(del_acc_btn)
+        
         top_layout.addStretch()
         
         add_btn = QPushButton("添加角色")
@@ -1359,6 +1428,15 @@ class MainWindow(QMainWindow):
         del_btn = QPushButton("删除角色")
         del_btn.clicked.connect(self.delete_role)
         top_layout.addWidget(del_btn)
+        
+        # 上移下移按钮
+        up_btn = QPushButton("↑上移")
+        up_btn.clicked.connect(self.move_role_up)
+        top_layout.addWidget(up_btn)
+        
+        down_btn = QPushButton("↓下移")
+        down_btn.clicked.connect(self.move_role_down)
+        top_layout.addWidget(down_btn)
         
         sync_btn = QPushButton("从代码强制同步")
         sync_btn.setToolTip("将role_list.py中的配置完整覆盖到JSON（会丢失在JSON中的修改）")
@@ -1391,12 +1469,21 @@ class MainWindow(QMainWindow):
         header.resizeSection(3, 60)   # 总疲劳
         header.resizeSection(4, 70)   # 预留疲劳
         header.resizeSection(5, 70)   # 需要Buff
-        self.role_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.role_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.role_table.setSelectionBehavior(QTableWidget.SelectRows)  # 选中整行
+        self.role_table.setSelectionMode(QTableWidget.SingleSelection)  # 单选模式
         self.role_table.doubleClicked.connect(self.edit_role)
         layout.addWidget(self.role_table)
         
-        layout.addWidget(QLabel("提示: 启动时自动同步新增/删除的角色；点击'从代码强制同步'可完整覆盖JSON配置"))
+        # 底部按钮和提示
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addWidget(QLabel("提示: 移动角色后需点击保存按钮"))
+        bottom_layout.addStretch()
+        save_btn = QPushButton("💾 保存角色配置")
+        save_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 5px 15px;")
+        save_btn.clicked.connect(self.save_role_changes)
+        bottom_layout.addWidget(save_btn)
+        layout.addLayout(bottom_layout)
         
         self.refresh_role_table()
         return widget
@@ -2505,7 +2592,7 @@ DNF_MAIL_RECEIVER={receiver}
         config = {
             # 妖气追踪/白图配置
             'game_mode': self.mode_group.checkedId(),
-            'account_code': self.acc_group.checkedId(),
+            'account_code': self.stronger_account_combo.currentData() or 'account1',
             'first_role': self.first_role.value(),
             'last_role': self.last_role.value(),
             'skip_role_enabled': self.skip_role_enabled.isChecked(),
@@ -2517,7 +2604,7 @@ DNF_MAIL_RECEIVER={receiver}
             'buy_ssm': self.buy_ssm.currentIndex(),
             'buy_catalyst': self.buy_catalyst.currentIndex(),
             # 深渊配置
-            'abyss_account_code': self.abyss_acc_group.checkedId(),
+            'abyss_account_code': self.abyss_account_combo.currentData() or 'account1',
             'abyss_first': self.abyss_first.value(),
             'abyss_last': self.abyss_last.value(),
             'abyss_skip_role_enabled': self.abyss_skip_role_enabled.isChecked(),
@@ -2560,9 +2647,9 @@ DNF_MAIL_RECEIVER={receiver}
                 if btn:
                     btn.setChecked(True)
             if 'account_code' in c:
-                btn = self.acc_group.button(c['account_code'])
-                if btn:
-                    btn.setChecked(True)
+                idx = self.stronger_account_combo.findData(c['account_code'])
+                if idx >= 0:
+                    self.stronger_account_combo.setCurrentIndex(idx)
             if 'first_role' in c:
                 self.first_role.setValue(c['first_role'])
             if 'last_role' in c:
@@ -2585,9 +2672,9 @@ DNF_MAIL_RECEIVER={receiver}
                 self.buy_catalyst.setCurrentIndex(c['buy_catalyst'])
             # 深渊配置
             if 'abyss_account_code' in c:
-                btn = self.abyss_acc_group.button(c['abyss_account_code'])
-                if btn:
-                    btn.setChecked(True)
+                idx = self.abyss_account_combo.findData(c['abyss_account_code'])
+                if idx >= 0:
+                    self.abyss_account_combo.setCurrentIndex(idx)
             if 'abyss_first' in c:
                 self.abyss_first.setValue(c['abyss_first'])
             if 'abyss_last' in c:
@@ -2624,15 +2711,142 @@ DNF_MAIL_RECEIVER={receiver}
                 self.schedule_minute.setValue(c['schedule_minute'])
             if 'schedule_mode' in c:
                 self.schedule_mode.setCurrentIndex(c['schedule_mode'])
-            # 当前选项卡
-            if 'current_tab' in c:
-                self.tabs.setCurrentIndex(c['current_tab'])
+            # 不再恢复选项卡，每次打开默认显示第一个选项卡
+            # if 'current_tab' in c:
+            #     self.tabs.setCurrentIndex(c['current_tab'])
             self.log("已加载上次配置")
         except Exception as e:
             self.log(f"加载配置失败: {e}")
     
     def get_current_account_key(self):
-        return 'account1' if self.role_acc_group.checkedId() == 1 else 'account2'
+        """获取当前选中的账号key"""
+        if hasattr(self, 'account_combo'):
+            return self.account_combo.currentData() or 'account1'
+        return 'account1'
+    
+    def _get_account_names(self):
+        """获取账号名称映射"""
+        return self.role_config.get('account_names', {})
+    
+    def _refresh_account_combo(self):
+        """刷新所有账号下拉框"""
+        account_names = self._get_account_names()
+        
+        # 获取所有账号key
+        account_keys = [k for k in self.role_config.keys() if k != 'account_names']
+        
+        # 刷新角色配置页面的下拉框
+        self._refresh_single_account_combo(self.account_combo, account_keys, account_names)
+        
+        # 刷新白图页面的下拉框
+        if hasattr(self, 'stronger_account_combo'):
+            self._refresh_single_account_combo(self.stronger_account_combo, account_keys, account_names)
+        
+        # 刷新深渊页面的下拉框
+        if hasattr(self, 'abyss_account_combo'):
+            self._refresh_single_account_combo(self.abyss_account_combo, account_keys, account_names)
+    
+    def _refresh_single_account_combo(self, combo, account_keys, account_names):
+        """刷新单个账号下拉框"""
+        combo.blockSignals(True)
+        current_key = combo.currentData() if combo.count() > 0 else None
+        combo.clear()
+        
+        for key in account_keys:
+            display_name = account_names.get(key, key.replace('account', '账号'))
+            combo.addItem(display_name, key)
+        
+        if current_key:
+            idx = combo.findData(current_key)
+            if idx >= 0:
+                combo.setCurrentIndex(idx)
+        
+        combo.blockSignals(False)
+    
+    def add_account(self):
+        """添加新账号"""
+        # 弹出输入框让用户输入账号名称
+        name, ok = QInputDialog.getText(self, "添加账号", "请输入账号名称:")
+        if not ok or not name.strip():
+            return
+        
+        name = name.strip()
+        
+        # 找到下一个可用的账号编号
+        existing_nums = []
+        for key in self.role_config.keys():
+            if key.startswith('account') and key != '_account_names':
+                try:
+                    num = int(key.replace('account', ''))
+                    existing_nums.append(num)
+                except:
+                    pass
+        next_num = max(existing_nums) + 1 if existing_nums else 1
+        new_key = f'account{next_num}'
+        
+        self.role_config[new_key] = []
+        # 确保account_names存在
+        if 'account_names' not in self.role_config:
+            self.role_config['account_names'] = {}
+        self.role_config['account_names'][new_key] = name
+        self.save_role_config()
+        self._refresh_account_combo()
+        
+        # 选中新账号
+        idx = self.account_combo.findData(new_key)
+        if idx >= 0:
+            self.account_combo.setCurrentIndex(idx)
+        
+        self.log(f"已添加账号: {name}")
+    
+    def rename_account(self):
+        """重命名当前账号"""
+        key = self.get_current_account_key()
+        account_names = self._get_account_names()
+        current_name = account_names.get(key, key.replace('account', '账号'))
+        
+        name, ok = QInputDialog.getText(self, "重命名账号", "请输入新名称:", text=current_name)
+        if not ok or not name.strip():
+            return
+        
+        # 确保account_names存在
+        if 'account_names' not in self.role_config:
+            self.role_config['account_names'] = {}
+        self.role_config['account_names'][key] = name.strip()
+        self.save_role_config()
+        self._refresh_account_combo()
+        self.log(f"已重命名账号: {name.strip()}")
+    
+    def _save_account_names(self):
+        """保存账号名称（随role_config一起保存）"""
+        self.save_role_config()
+    
+    def delete_account(self):
+        """删除当前账号"""
+        if len([k for k in self.role_config.keys() if k != 'account_names']) <= 1:
+            QMessageBox.warning(self, "警告", "至少需要保留一个账号")
+            return
+        
+        key = self.get_current_account_key()
+        account_names = self._get_account_names()
+        display_name = account_names.get(key, key.replace('account', '账号'))
+        role_count = len(self.role_config.get(key, []))
+        
+        reply = QMessageBox.question(
+            self, "确认删除",
+            f"确定删除 {display_name} 吗？\n该账号下有 {role_count} 个角色将被删除。",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            del self.role_config[key]
+            # 删除账号名称
+            if 'account_names' in self.role_config and key in self.role_config['account_names']:
+                del self.role_config['account_names'][key]
+            self.save_role_config()
+            self._refresh_account_combo()
+            self.refresh_role_table()
+            self.log(f"已删除账号: {display_name}")
     
     def refresh_role_table(self):
         """刷新角色表格"""
@@ -2640,7 +2854,7 @@ DNF_MAIL_RECEIVER={receiver}
         roles = self.role_config.get(key, [])
         self.role_table.setRowCount(len(roles))
         for i, role in enumerate(roles):
-            self.role_table.setItem(i, 0, QTableWidgetItem(str(i + 1)))
+            self.role_table.setItem(i, 0, QTableWidgetItem(str(role.get('no', i + 1))))
             self.role_table.setItem(i, 1, QTableWidgetItem(role.get('name', '')))
             self.role_table.setItem(i, 2, QTableWidgetItem(str(role.get('height', 150))))
             self.role_table.setItem(i, 3, QTableWidgetItem(str(role.get('fatigue_all', 188))))
@@ -2678,7 +2892,26 @@ DNF_MAIL_RECEIVER={receiver}
                         # 未知类型，展示为自定义
                         key = s.get('hot_key', '') or s.get('name', '') or s.get('value', '')
                         skill_display.append(f"自定义[{key}]")
-            self.role_table.setItem(i, 6, QTableWidgetItem(' || '.join(skill_display)))
+            # 提取大招信息并合并到技能展示
+            powerful_skills = role.get('powerful_skills', [])
+            powerful_display = []
+            for s in powerful_skills:
+                if isinstance(s, str):
+                    powerful_display.append(s)
+                elif isinstance(s, dict):
+                    skill_type = s.get('type', '')
+                    if skill_type == 'str':
+                        powerful_display.append(s.get('value', ''))
+                    elif skill_type == 'key':
+                        powerful_display.append(s.get('value', '').replace('Key.', ''))
+                    else:
+                        powerful_display.append(s.get('hot_key', '') or s.get('name', '') or s.get('value', ''))
+            
+            # 合并展示：技能 + 大招
+            all_display = ' || '.join(skill_display)
+            if powerful_display:
+                all_display += f" 【大招: {' | '.join(powerful_display)}】"
+            self.role_table.setItem(i, 6, QTableWidgetItem(all_display))
     
     def add_role(self):
         """添加角色"""
@@ -2701,16 +2934,29 @@ DNF_MAIL_RECEIVER={receiver}
             QMessageBox.warning(self, "警告", "请先选择要编辑的角色")
             return
         key = self.get_current_account_key()
-        role_data = self.role_config[key][row]
+        role_data = self.role_config[key][row].copy()  # 使用副本避免直接修改
+        old_no = role_data.get('no', row + 1)
         dialog = RoleEditDialog(self, role_data)
         if dialog.exec_() == QDialog.Accepted:
             new_data = dialog.get_data()
-            # 保留原有编号
-            new_data['no'] = row + 1
+            new_no = new_data.get('no', old_no)
+            
+            # 更新角色数据
             self.role_config[key][row] = new_data
+            
+            # 如果编号改变了，处理编号冲突
+            if new_no != old_no:
+                roles = self.role_config[key]
+                # 找出其他角色中编号 >= new_no 的，让它们编号+1
+                for r in roles:
+                    if r is not new_data and r.get('no', 0) >= new_no:
+                        r['no'] = r.get('no', 0) + 1
+            
+            # 按编号重新排序
+            self.role_config[key].sort(key=lambda x: x.get('no', 999))
             self.save_role_config()
             self.refresh_role_table()
-            self.log(f"已更新角色: {new_data['name']}")
+            self.log(f"已更新角色: {new_data['name']} (编号: {new_no})")
     
     def delete_role(self):
         """删除角色"""
@@ -2725,6 +2971,46 @@ DNF_MAIL_RECEIVER={receiver}
             self.save_role_config()
             self.refresh_role_table()
             self.log(f"已删除角色: {name}")
+    
+    def move_role_up(self):
+        """上移角色"""
+        row = self.role_table.currentRow()
+        if row <= 0:
+            return
+        self._swap_roles(row, row - 1)
+        self.role_table.selectRow(row - 1)
+    
+    def move_role_down(self):
+        """下移角色"""
+        row = self.role_table.currentRow()
+        key = self.get_current_account_key()
+        if row < 0 or row >= len(self.role_config[key]) - 1:
+            return
+        self._swap_roles(row, row + 1)
+        self.role_table.selectRow(row + 1)
+    
+    def _swap_roles(self, row1, row2):
+        """交换两个角色的位置（不自动保存）"""
+        key = self.get_current_account_key()
+        roles = self.role_config[key]
+        
+        # 交换位置
+        roles[row1], roles[row2] = roles[row2], roles[row1]
+        
+        # 重新分配编号
+        for i, r in enumerate(roles):
+            r['no'] = i + 1
+        
+        self.refresh_role_table()
+        name = roles[row2].get('name', '')
+        self.log(f"已移动角色 '{name}'（未保存）")
+    
+    def save_role_changes(self):
+        """保存角色配置更改"""
+        self.save_role_config()
+        self.log("已保存角色配置")
+    
+
     
     def force_sync_from_code(self):
         """从role_list.py强制同步角色配置到JSON（完整覆盖）"""
@@ -2748,6 +3034,7 @@ DNF_MAIL_RECEIVER={receiver}
             
             # 重新加载配置
             self.load_role_config()
+            self._refresh_account_combo()  # 刷新账号下拉框
             self.refresh_role_table()
             
             count1 = len(self.role_config.get('account1', []))
@@ -2807,7 +3094,7 @@ DNF_MAIL_RECEIVER={receiver}
             
             config = {
                 'game_mode': self.mode_group.checkedId(),
-                'account_code': self.acc_group.checkedId(),
+                'account_code': self.stronger_account_combo.currentData() or 'account1',
                 'first_role': self.first_role.value(),
                 'last_role': self.last_role.value(),
                 'show_detection': self.show_detection.isChecked(),
@@ -2835,7 +3122,7 @@ DNF_MAIL_RECEIVER={receiver}
                     self.log("跳过角色列表格式错误，已忽略")
             
             config = {
-                'account_code': self.abyss_acc_group.checkedId(),
+                'account_code': self.abyss_account_combo.currentData() or 'account1',
                 'first_role': self.abyss_first.value(),
                 'last_role': self.abyss_last.value(),
                 'show_detection': self.show_detection.isChecked(),

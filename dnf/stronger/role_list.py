@@ -1345,6 +1345,29 @@ def get_role_config_list(account_code):
                           ]
                           ))
 
+    role_configs.append(R(name='暗帝', no=len(role_configs) + 1,
+                          buffs=[[Key.right, Key.right, Key.space]],
+                          candidate_hotkeys=['x'],
+                          height=149,
+                          custom_priority_skills=[
+                              's',
+                              'f',
+                              'd',
+                              'q',
+                              'w',
+                              'e',
+                              'r',
+                              't',
+                              Key.ctrl_l
+                          ],
+                          fatigue_all=default_fatigue_all,
+                          fatigue_reserved=default_fatigue_reserved,
+                          powerful_skills=[
+                              'e',
+                              'h'
+                          ]
+                          ))
+
     role_configs.append(R(name='奶枪', no=len(role_configs) + 1,
                           buffs=[[Key.right, Key.right, Key.space]],
                           candidate_hotkeys=['x'],

@@ -145,14 +145,20 @@ def save_role_configs(role_configs: List[RoleConfig], account_code: int, filepat
     if filepath is None:
         filepath = ROLE_CONFIG_FILE
     
-    # 读取现有配置
-    existing_config = {'account1': [], 'account2': []}
+    # 读取现有配置（保留account_names等其他字段）
+    existing_config = {}
     if os.path.exists(filepath):
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
                 existing_config = json.load(f)
         except:
             pass
+    
+    # 确保基本结构存在
+    if 'account1' not in existing_config:
+        existing_config['account1'] = []
+    if 'account2' not in existing_config:
+        existing_config['account2'] = []
     
     # 更新对应账号的配置
     key = 'account1' if account_code == 1 else 'account2'
@@ -163,8 +169,10 @@ def save_role_configs(role_configs: List[RoleConfig], account_code: int, filepat
         json.dump(existing_config, f, ensure_ascii=False, indent=2)
 
 
-def load_role_configs(account_code: int, filepath: str = None) -> List[RoleConfig]:
-    """从JSON文件加载角色配置"""
+def load_role_configs(account_code, filepath: str = None) -> List[RoleConfig]:
+    """从JSON文件加载角色配置
+    account_code: 可以是数字(1, 2)或字符串('account1', 'account2', 'account3'等)
+    """
     if filepath is None:
         filepath = ROLE_CONFIG_FILE
     
@@ -175,7 +183,12 @@ def load_role_configs(account_code: int, filepath: str = None) -> List[RoleConfi
         with open(filepath, 'r', encoding='utf-8') as f:
             config = json.load(f)
         
-        key = 'account1' if account_code == 1 else 'account2'
+        # 支持数字和字符串两种格式
+        if isinstance(account_code, int):
+            key = f'account{account_code}'
+        else:
+            key = account_code
+        
         role_dicts = config.get(key, [])
         
         return [dict_to_role_config(d) for d in role_dicts]
@@ -272,17 +285,31 @@ def sync_role_configs(account_code: int = 1) -> tuple:
     return (len(added_names), len(removed_names), len(new_configs))
 
 
-def get_role_config_list_from_json(account_code: int) -> List[RoleConfig]:
+def get_role_config_list_from_json(account_code) -> List[RoleConfig]:
     """
     从JSON文件加载角色配置
-    如果JSON为空，则从role_list.py导出
+    account_code: 可以是数字(1, 2)或字符串('account1', 'account2', 'account3'等)
+    如果JSON为空且account_code是1或2，则从role_list.py导出
     """
     role_configs = load_role_configs(account_code)
     
     if not role_configs:
-        # JSON文件不存在或为空，从role_list.py导出
-        print(f"JSON配置为空，从role_list.py导出账号{account_code}的角色配置...")
-        role_configs = export_from_role_list(account_code)
+        # JSON文件不存在或为空
+        # 只有account1和account2支持从role_list.py导出
+        numeric_code = None
+        if isinstance(account_code, int) and account_code in (1, 2):
+            numeric_code = account_code
+        elif isinstance(account_code, str):
+            if account_code == 'account1':
+                numeric_code = 1
+            elif account_code == 'account2':
+                numeric_code = 2
+        
+        if numeric_code:
+            print(f"JSON配置为空，从role_list.py导出账号{account_code}的角色配置...")
+            role_configs = export_from_role_list(numeric_code)
+        else:
+            print(f"账号{account_code}配置为空，且不支持从role_list.py导出")
     else:
         print(f"从JSON文件加载账号{account_code}的角色配置，共{len(role_configs)}个角色")
     
