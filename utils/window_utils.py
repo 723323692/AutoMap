@@ -189,9 +189,10 @@ class WindowCapture:
                 self._dxcam_camera = dxcam.create(output_color="BGR")
                 print(f"[WindowCapture] 使用 dxcam 模式 (DX11/DX12支持)")
             except Exception as e:
-                print(f"[WindowCapture] dxcam 初始化失败: {e}，回退到传统模式")
+                print(f"[WindowCapture] dxcam 初始化失败: {e}，回退到 PrintWindow 模式")
                 self.use_dxcam = False
                 self._dxcam_camera = None
+                self.use_printwindow = True  # 回退到PrintWindow，支持DX11
 
         # 创建设备上下文（传统模式备用）
         self.wdc = win32gui.GetWindowDC(self.hwnd)
