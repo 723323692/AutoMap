@@ -1,5 +1,5 @@
 {
-  "game_mode": 3,
+  "game_mode": 2,
   "account_code": "account1",
   "first_role": 1,
   "last_role": 16,
@@ -12,8 +12,8 @@
   "buy_ssm": 2,
   "buy_catalyst": 7,
   "abyss_account_code": "account1",
-  "abyss_first": 5,
-  "abyss_last": 5,
+  "abyss_first": 1,
+  "abyss_last": 16,
   "abyss_skip_role_enabled": false,
   "abyss_skip_role_list": "",
   "abyss_uniform": false,
@@ -26,5 +26,5 @@
   "schedule_hour": 17,
   "schedule_minute": 47,
   "schedule_mode": 1,
-  "current_tab": 0
+  "current_tab": 1
 }

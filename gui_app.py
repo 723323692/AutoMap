@@ -398,9 +398,9 @@ class ScriptWorker(QThread):
             # 保存模块引用用于停止
             self._abyss_main = abyss_main
             
-            # GUI模式下不启动脚本内部的热键监听，避免重复触发
-            # listener = threading.Thread(target=abyss_main.start_keyboard_listener, daemon=True)
-            # listener.start()
+            # 启动脚本内部的热键监听（End停止、Delete暂停）
+            listener = threading.Thread(target=abyss_main.start_keyboard_listener, daemon=True)
+            listener.start()
             abyss_main.main_script()
             self.log("脚本执行完成")
         finally:

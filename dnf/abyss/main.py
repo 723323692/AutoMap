@@ -157,10 +157,61 @@ color_yellow = (0, 255, 255)  # 黄色
 color_purple = (255, 0, 255)  # 紫色
 
 # ---------------------------------------------------------
-model = YOLO(weights)
-device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-# if device.type != 'cpu':
-#     model.half()  # to FP16
+# 延迟加载模型，提升启动速度
+model = None
+device = None
+stop_signal = [False]
+
+def _select_best_gpu():
+    """选择最佳GPU设备，优先选择独立显卡"""
+    if not torch.cuda.is_available():
+        return torch.device("cpu"), "CPU"
+    
+    gpu_count = torch.cuda.device_count()
+    if gpu_count == 1:
+        name = torch.cuda.get_device_name(0)
+        return torch.device("cuda:0"), name
+    
+    # 多GPU时，选择显存最大的（通常是独显）
+    best_idx = 0
+    best_memory = 0
+    for i in range(gpu_count):
+        props = torch.cuda.get_device_properties(i)
+        name = props.name.lower()
+        # 跳过核显（Intel/AMD集成显卡）
+        if 'intel' in name or 'integrated' in name:
+            continue
+        if props.total_memory > best_memory:
+            best_memory = props.total_memory
+            best_idx = i
+    
+    name = torch.cuda.get_device_name(best_idx)
+    return torch.device(f"cuda:{best_idx}"), name
+
+
+def get_model():
+    """延迟加载YOLO模型"""
+    global model, device
+    if model is None:
+        import time as _time
+        t0 = _time.time()
+        
+        # 先选择设备
+        device, device_name = _select_best_gpu()
+        logger.info(f"选择计算设备: {device} ({device_name})")
+        
+        # 加载主模型并移动到指定设备
+        logger.info("正在加载深渊推理模型...")
+        model = YOLO(weights)
+        model.to(device)
+        
+        # 模型预热，让首次推理更快
+        logger.info("模型预热中...")
+        import numpy as np
+        dummy_img = np.zeros((640, 640, 3), dtype=np.uint8)
+        model.predict(source=dummy_img, device=device, verbose=False)
+        logger.info(f"模型加载完成，使用设备: {device} ({device_name})，耗时: {_time.time()-t0:.1f}秒")
+    return model, device
 names = [
     'boss',
     'card',
@@ -203,98 +254,270 @@ tool_executor = concurrent.futures.ThreadPoolExecutor(max_workers=3)
 mail_sender = EmailSender(mail_config)  # 初始化邮件发送器
 
 
-# 创建一个队列，用于主线程和展示线程之间的通信
-result_queue = queue.Queue()
+# 创建一个队列，用于主线程和展示线程之间的通信（maxsize=2避免堆积）
+result_queue = queue.Queue(maxsize=2)
 
+# 展示线程停止标志
+display_stop_flag = False
 
 # 展示线程的函数
 def display_results():
+    global display_stop_flag
+    window_name = "Game Capture"
     window_created = False
-    while True:
+    last_frame = None
+    
+    while not display_stop_flag:
         try:
-            # 从队列中获取检测结果（带超时避免阻塞）
+            # 阻塞等待新帧，超时100ms检查一次停止标志
+            frame = None
             try:
-                frame_with_detections = result_queue.get(timeout=0.1)
-            except queue.Empty:
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                frame = result_queue.get(timeout=0.1)
+                if frame is None:
+                    display_stop_flag = True
                     break
+                # 丢弃旧帧，只保留最新的
+                while not result_queue.empty():
+                    try:
+                        newer_frame = result_queue.get_nowait()
+                        if newer_frame is None:
+                            display_stop_flag = True
+                            break
+                        frame = newer_frame
+                    except queue.Empty:
+                        break
+            except queue.Empty:
+                # 超时，继续循环检查停止标志
+                if last_frame is not None:
+                    cv2.waitKey(1)  # 保持窗口响应
                 continue
-                
-            if frame_with_detections is None:  # 如果接收到None，退出线程
+            
+            if display_stop_flag:
                 break
+                
+            # 更新帧
+            if frame is not None:
+                last_frame = frame
 
-            # 只创建一次窗口
+            # 创建窗口
             if not window_created:
-                cv2.namedWindow("Game Capture", cv2.WINDOW_AUTOSIZE)
-                cv2.moveWindow("Game Capture", 10, 10)
+                cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+                cv2.resizeWindow(window_name, 640, 360)
+                cv2.moveWindow(window_name, 10, 10)
                 window_created = True
 
-            # 缩小并显示
-            frame_resized = cv2.resize(frame_with_detections, (640, 360))
-            cv2.imshow("Game Capture", frame_resized)
-
-            # 按下 'q' 键退出
+            # 显示
+            cv2.imshow(window_name, last_frame)
+            
+            # waitKey 控制刷新率
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+                
         except Exception as e:
-            logger.error(f"展示显示报错: {e}")
+            if not display_stop_flag:
+                logger.error(f"展示显示报错: {e}")
+            break
 
-    # 清理资源
-    cv2.destroyAllWindows()
-
-
-# 启动展示线程（如果show=True）
-if show:
-    display_thread = threading.Thread(target=display_results, daemon=True)
-    display_thread.start()
-
-#  >>>>>>>>>>>>>>>> 方法定义 >>>>>>>>>>>>>>>>
-
-def on_press(key):
-    global stop_be_pressed, continue_pressed, x, y
-    if key in dnf.key_stop_script or key in dnf.key_pause_script:
-        current_keys_control.add(key)
-        if all(k in current_keys_control for k in dnf.key_stop_script):
-            formatted_keys = ', '.join(item.name for item in dnf.key_stop_script)
-            logger.warning(f"监听到组合键 [{formatted_keys}]，停止脚本...")
-            threading.Thread(target=lambda: winsound.PlaySound(config_.sound2, winsound.SND_FILENAME)).start()
-            stop_be_pressed = True
-            return False  # 停止监听
-
-        if all(k in current_keys_control for k in dnf.key_pause_script):
-            formatted_keys = ', '.join(item.name for item in dnf.key_pause_script)
-            logger.warning(f"监听到组合键 [{formatted_keys}]，暂停or继续?")
-            threading.Thread(target=lambda: winsound.PlaySound(config_.sound3, winsound.SND_FILENAME)).start()
-            if pause_event.is_set():
-                logger.warning(f"按下 [{formatted_keys}]键，暂停运行...")
-                pause_event.clear()  # 暂停
-                mover._release_all_keys()
-                time.sleep(0.2)
-                mover._release_all_keys()
-            else:
-                logger.warning(f"按下 [{formatted_keys}] 键，唤醒运行...")
-                x, y, _, _ = window_utils.get_window_rect(handle)
-                mu.do_move_to(x + 250, y + 150)
-                time.sleep(0.1)
-                mu.do_click(Button.left)
-                continue_pressed = True
-                pause_event.set()  # 继续
-            time.sleep(0.5)  # 防止重复触发
-
-
-def on_release(key):
+    # 清理
     try:
-        if key in current_keys_control:
-            current_keys_control.remove(key)
-    except KeyError as e:
-        logger.error(f"Error occurred: {e}")
+        cv2.destroyWindow(window_name)
+        cv2.waitKey(1)
+    except:
         pass
 
 
-# 创建一个线程来监听键盘输入
+# 展示线程变量
+display_thread = None
+
+
+def start_display_thread():
+    """启动展示线程"""
+    global display_thread, display_stop_flag
+    display_stop_flag = False
+    
+    # 清空队列
+    while not result_queue.empty():
+        try:
+            result_queue.get_nowait()
+        except:
+            break
+    
+    if display_thread is None or not display_thread.is_alive():
+        display_thread = threading.Thread(target=display_results, daemon=True)
+        display_thread.start()
+        logger.info("检测结果展示窗口已启动")
+
+
+def stop_display_thread():
+    """停止展示线程"""
+    global display_stop_flag
+    display_stop_flag = True
+    # 发送None信号让线程退出
+    try:
+        result_queue.put(None)
+    except:
+        pass
+
+#  >>>>>>>>>>>>>>>> 方法定义 >>>>>>>>>>>>>>>>
+
+def _do_stop_action():
+    """停止脚本的实际操作（在单独线程中执行）"""
+    global stop_be_pressed, stop_signal
+    winsound.PlaySound(config_.sound2, winsound.SND_FILENAME)
+    stop_be_pressed = True
+    stop_signal[0] = True
+    # 立即释放所有按键
+    mover._release_all_keys()
+
+
+def on_stop_hotkey():
+    """停止脚本的热键回调 - 立即响应，耗时操作放到线程"""
+    global stop_be_pressed, stop_signal
+    logger.warning("监听到停止热键，停止脚本...")
+    stop_be_pressed = True  # 立即设置标志
+    stop_signal[0] = True
+    mover._release_all_keys()  # 立即释放按键
+    threading.Thread(target=_do_stop_action, daemon=True).start()
+
+
+def _do_pause_action():
+    """暂停/继续的实际操作（在单独线程中执行）"""
+    global continue_pressed, x, y
+    winsound.PlaySound(config_.sound3, winsound.SND_FILENAME)
+
+
+def _do_resume_action():
+    """继续运行的实际操作（在单独线程中执行）"""
+    global continue_pressed, x, y
+    winsound.PlaySound(config_.sound3, winsound.SND_FILENAME)
+    time.sleep(0.1)
+    x, y, _, _ = window_utils.get_window_rect(handle)
+    mu.do_smooth_move_to(x + 500, y + 300)
+    time.sleep(0.1)
+    mu.do_click(Button.left)
+
+
+def on_pause_hotkey():
+    """暂停/继续的热键回调 - 立即响应，耗时操作放到线程"""
+    global continue_pressed
+    logger.warning("监听到暂停/继续热键...")
+    if pause_event.is_set():
+        logger.warning("暂停运行...")
+        pause_event.clear()  # 立即暂停
+        mover._release_all_keys()  # 立即释放按键
+        threading.Thread(target=_do_pause_action, daemon=True).start()
+    else:
+        logger.warning("唤醒运行...")
+        continue_pressed = True
+        pause_event.set()  # 立即继续
+        threading.Thread(target=_do_resume_action, daemon=True).start()
+
+
+def _pynput_key_to_keyboard_key(pynput_key):
+    """将pynput的Key转换为keyboard库的键名"""
+    key_map = {
+        'Key.end': 'end',
+        'Key.delete': 'delete',
+        'Key.home': 'home',
+        'Key.insert': 'insert',
+        'Key.page_up': 'page up',
+        'Key.page_down': 'page down',
+        'Key.pause': 'pause',
+        'Key.f1': 'f1', 'Key.f2': 'f2', 'Key.f3': 'f3', 'Key.f4': 'f4',
+        'Key.f5': 'f5', 'Key.f6': 'f6', 'Key.f7': 'f7', 'Key.f8': 'f8',
+        'Key.f9': 'f9', 'Key.f10': 'f10', 'Key.f11': 'f11', 'Key.f12': 'f12',
+    }
+    key_str = str(pynput_key)
+    return key_map.get(key_str, key_str.replace('Key.', ''))
+
+
+# 当前注册的热键，用于重新注册时先取消
+_current_hotkeys = {'stop': None, 'pause': None}
+_hotkey_listener_running = False
+
+
+def _get_hotkey_config():
+    """获取热键配置"""
+    import importlib
+    # 重新加载配置模块以获取最新配置
+    importlib.reload(dnf)
+    
+    stop_key = 'end'
+    pause_key = 'delete'
+    
+    try:
+        if dnf.key_stop_script:
+            for k in dnf.key_stop_script:
+                stop_key = _pynput_key_to_keyboard_key(k)
+                break
+        if dnf.key_pause_script:
+            for k in dnf.key_pause_script:
+                pause_key = _pynput_key_to_keyboard_key(k)
+                break
+    except Exception as e:
+        logger.warning(f"读取热键配置失败，使用默认值: {e}")
+    
+    return stop_key, pause_key
+
+
+# Windows虚拟键码映射
+_VK_CODE_MAP = {
+    'end': 0x23, 'delete': 0x2E, 'home': 0x24, 'insert': 0x2D,
+    'page up': 0x21, 'page down': 0x22, 'pause': 0x13,
+    'f1': 0x70, 'f2': 0x71, 'f3': 0x72, 'f4': 0x73,
+    'f5': 0x74, 'f6': 0x75, 'f7': 0x76, 'f8': 0x77,
+    'f9': 0x78, 'f10': 0x79, 'f11': 0x7A, 'f12': 0x7B,
+}
+
+
+def _key_to_vk(key_name):
+    """将键名转换为Windows虚拟键码"""
+    return _VK_CODE_MAP.get(key_name.lower(), 0)
+
+
+def reload_hotkeys():
+    """重新注册热键（供GUI调用）- 使用轮询方式无需重新注册"""
+    stop_key, pause_key = _get_hotkey_config()
+    logger.info(f"热键配置已更新: {stop_key}=停止, {pause_key}=暂停/继续")
+    return stop_key, pause_key
+
+
 def start_keyboard_listener():
-    with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
-        listener.join()
+    """使用Windows API轮询方式监听热键，不受游戏按键影响"""
+    import ctypes
+    global _hotkey_listener_running
+    
+    _hotkey_listener_running = True
+    user32 = ctypes.windll.user32
+    
+    # 获取热键配置
+    stop_key, pause_key = _get_hotkey_config()
+    stop_vk = _key_to_vk(stop_key)
+    pause_vk = _key_to_vk(pause_key)
+    
+    logger.info(f"已启动热键轮询监听: {stop_key}(VK={hex(stop_vk)})=停止, {pause_key}(VK={hex(pause_vk)})=暂停/继续")
+    
+    # 防抖动
+    last_stop_time = 0
+    last_pause_time = 0
+    debounce_interval = 0.3
+    
+    while not stop_be_pressed and _hotkey_listener_running:
+        current_time = time.time()
+        
+        # 检查停止键 (GetAsyncKeyState返回最高位为1表示按下)
+        if stop_vk and user32.GetAsyncKeyState(stop_vk) & 0x8000:
+            if current_time - last_stop_time >= debounce_interval:
+                last_stop_time = current_time
+                on_stop_hotkey()
+        
+        # 检查暂停键
+        if pause_vk and user32.GetAsyncKeyState(pause_vk) & 0x8000:
+            if current_time - last_pause_time >= debounce_interval:
+                last_pause_time = current_time
+                on_pause_hotkey()
+        
+        time.sleep(0.05)  # 50ms轮询间隔
 
 
 def analyse_det_result(results, hero_height, img) -> DetResult:
@@ -475,6 +698,7 @@ def analyse_det_result(results, hero_height, img) -> DetResult:
 def main_script():
     global x, y, handle, show, stop_be_pressed
     # ################### 主流程开始 ###############################
+    start_time = datetime.now()
     logger.info("_____________________准备_____________________")
     logger.info(f"脚本参数: first_role_no={first_role_no}, last_role_no={last_role_no}, account_code={account_code}")
     time.sleep(1)
@@ -488,8 +712,17 @@ def main_script():
         import traceback
         traceback.print_exc()
     finally:
+        end_time = datetime.now()
+        logger.info(f'脚本开始: {start_time.strftime("%Y-%m-%d %H:%M:%S")}')
+        logger.info(f'脚本结束: {end_time.strftime("%Y-%m-%d %H:%M:%S")}')
+        time_delta = end_time - start_time
+        logger.info(f'总计耗时: {(time_delta.total_seconds() / 60):.1f} 分钟')
         logger.info("脚本执行结束")
         mover._release_all_keys()
+        
+        # 停止展示线程
+        if show:
+            stop_display_thread()
 
 
 def _run_main_script():
@@ -499,6 +732,8 @@ def _run_main_script():
     handle = window_utils.get_window_handle(dnf.window_title)
     x, y, width, height = window_utils.get_window_rect(handle)
     logger.info("获取游戏窗口位置和大小...{},{},{},{}", x, y, width, height)
+    window_utils.resize_window(handle)
+    logger.warning("矫正窗口大小:1067*600")
     capturer = WindowCapture(handle)
 
     # 获取角色配置列表
@@ -508,7 +743,7 @@ def _run_main_script():
 
     pause_event.wait()
     # 检查每日弹窗
-    close_new_day_dialog(handle, x, y)
+    close_new_day_dialog(handle, x, y, capturer)
 
     pause_event.wait()  # 暂停
     # 遍历角色, 循环刷图
@@ -551,7 +786,7 @@ def _run_main_script():
 
         # 检查每日弹窗
         if datetime.now().hour == 0:
-            close_new_day_dialog(handle, x, y)
+            close_new_day_dialog(handle, x, y, capturer)
 
         logger.info(f'设置的拥有疲劳值: {role.fatigue_all}')
 
@@ -718,10 +953,11 @@ def _run_main_script():
                 img4show = img0.copy()
                 # frame = frame + 1
                 # print('截图ing，，，', frame)
-                # 执行推理
-                results = model.predict(
+                # 执行推理（使用延迟加载的模型）
+                _model, _device = get_model()
+                results = _model.predict(
                     source=img0,
-                    device=device,
+                    device=_device,
                     imgsz=640,
                     conf=0.7,
                     iou=0.2,
@@ -1371,7 +1607,7 @@ def _run_main_script():
             logger.info('刷了图之后,进行整理....')
             # 检查每日弹窗
             if datetime.now().hour == 0:
-                close_new_day_dialog(handle, x, y)
+                close_new_day_dialog(handle, x, y, capturer)
 
             pause_event.wait()  # 暂停
             # 瞬移到赛丽亚房间
@@ -1382,12 +1618,11 @@ def _run_main_script():
             # finish_daily_challenge(x, y)
 
             pause_event.wait()  # 暂停
+            # 收邮件
+            receive_mail(capturer.capture(), x, y)
+            time.sleep(0.5)
             # 转移材料到账号金库
             transfer_materials_to_account_vault(x, y)
-            # 收邮件
-            if datetime.now().weekday() == 2:
-                logger.info('收邮件')
-                receive_mail(capturer.capture(), x, y)
 
         pause_event.wait()  # 暂停
         # 准备重新选择角色

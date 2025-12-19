@@ -47,6 +47,19 @@ def get_window_rect(handle):
     return x1, y1, width, height
 
 
+def resize_window(handle, width=1067, height=600):
+    """
+    调整窗口大小到指定尺寸
+    :param handle: 窗口句柄
+    :param width: 目标宽度，默认1067
+    :param height: 目标高度，默认600
+    :return: (x, y, width, height) 调整后的窗口位置和大小
+    """
+    x, y, _, _ = get_window_rect(handle)
+    win32gui.MoveWindow(handle, x, y, width, height, win32con.SWP_NOSIZE)
+    return x, y, width, height
+
+
 def capture_window_image(handle):
     """
     截取窗口图像

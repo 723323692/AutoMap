@@ -1028,7 +1028,7 @@ def _run_main_script():
     handle = window_utils.get_window_handle(dnf.window_title)
     x, y, width, height = window_utils.get_window_rect(handle)
     logger.info("获取游戏窗口位置和大小...{},{},{},{}", x, y, width, height)
-    win32gui.MoveWindow(handle, x, y, 1067, 600, win32con.SWP_NOSIZE)
+    window_utils.resize_window(handle)
     logger.warning("矫正窗口大小:1067*600")
     capturer = WindowCapture(handle)
 
