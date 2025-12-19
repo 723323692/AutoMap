@@ -1,7 +1,7 @@
 {
   "game_mode": 2,
   "account_code": "account1",
-  "first_role": 8,
+  "first_role": 9,
   "last_role": 16,
   "skip_role_enabled": true,
   "skip_role_list": "3,16",

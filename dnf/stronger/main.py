@@ -123,7 +123,7 @@ buy_shanshanming = 2  # buy_type: 0，不买，1买粉罐子，2买传说罐子�
 # 买催化剂
 buy_catalyst = 7  # buy_type: 0不买，1传说，2史诗，3太初，4传说+史诗，5史诗+太初，6传说+太初，7全部
 # 账号编码0
-account_code = 2  # 1:执行自己账号,2:执行五子账号
+account_code = 1  # 1:执行自己账号,2:执行五子账号
 # 执行脚本的第一个角色_编号
 first_role_no = 25
 last_role_no = 40
@@ -2606,10 +2606,8 @@ def _run_main_script():
                 # activity_live(x, y)
 
         pause_event.wait()  # 暂停
-        # 准备重新选择角色
-        # if i < len(role_list) - 1:
-
-        if i < last_role_no - 1:
+        # 准备重新选择角色（当前角色编号小于最后角色编号时才选择下一个）
+        if role_no < last_role_no:
             # 检查停止标志
             if stop_be_pressed:
                 logger.warning("检测到停止信号，退出角色循环...")
@@ -2701,9 +2699,5 @@ if __name__ == "__main__":
             break
         time.sleep(1)
 
-    end_time = datetime.now()
-    logger.info(f'脚本开始: {start_time.strftime("%Y-%m-%d %H:%M:%S")}')
-    logger.info(f'脚本结束: {end_time.strftime("%Y-%m-%d %H:%M:%S")}')
-    time_delta = end_time - start_time
-    logger.info(f'总计耗时: {(time_delta.total_seconds() / 60):.1f} 分钟')
+    # 运行时间已在main_script的finally中输出，这里不再重复
     logger.info("python主线程已停止.....")
