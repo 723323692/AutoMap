@@ -28,7 +28,10 @@ skill_width = 28
 
 # 技能栏按键列表（可以通过GUI修改，对应游戏内的技能栏按键）
 # 14个槽位：上排7个 + 下排7个
-ACTUAL_KEYS = ["q", "w", "e", "r", "t", "ctrl_l", "", "a", "s", "d", "f", "g", "h", "alt_l"]
+ACTUAL_KEYS = [ #上排
+                "q", "w", "e", "r", "t", "ctrl_l", "", 
+                # 下排
+                "a", "s", "d", "f", "g", "h", "alt_l"]
 
 def _get_actual_keys():
     """动态获取实际按键列表"""

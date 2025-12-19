@@ -322,6 +322,7 @@ class ScriptWorker(QThread):
             import dnf.stronger.main as stronger_main
             # 重置停止标志
             stronger_main.stop_be_pressed = False
+            stronger_main.use_json_config = True  # GUI模式使用JSON配置
             stronger_main.game_mode = self.config['game_mode']
             stronger_main.account_code = self.config['account_code']
             stronger_main.first_role_no = self.config['first_role']
