@@ -215,3 +215,14 @@ server/cards.db
 # IDE
 .vscode/
 .idea/
+
+# Build / Release
+release/
+build/
+dist/
+*.pyd
+*.c
+*.spec
+build_client.py
+build_cython.py
+build_client.bat

@@ -1681,8 +1681,6 @@ def _run_main_script():
 
         time_diff = datetime.now() - oen_role_start_time
         logger.warning(f'第【{i + 1}】个角色【{role.name}】刷图打怪循环结束...总计耗时: {(time_diff.total_seconds() / 60):.1f} 分钟')
-        if exception_mail_notify_timer:
-            exception_mail_notify_timer.cancel()
         # 刷图流程结束<<<<<<<<<<
         # # 展示掉右下角的图标
         # show_right_bottom_icon(capturer.capture(), x, y)
