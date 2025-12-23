@@ -205,6 +205,13 @@ atlassian-ide-plugin.xml
 gui_config.json
 log.txt
 role_config.json
+.auth_local
+auth_data.json
+card_generator_config.json
+
+# Server data
+server/cards.db
 
 # IDE
 .vscode/
+.idea/
