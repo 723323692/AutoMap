@@ -999,6 +999,7 @@ def _run_main_script():
             fight_victory = False  # 已经结算了
             door_absence_time = 0  # 什么也没识别到的时间(没识别到门)
             hole_appeared = False
+            hole_try_count = 0  # hole进入尝试次数
             boss_appeared = False
             die_time = 0
             delay_break = 0
@@ -1247,6 +1248,16 @@ def _run_main_script():
                     # 要进洞
                     if hole_xywh_list:
                         door_box = hole_xywh_list[0]
+                        hole_try_count += 1
+                        
+                        # 多次尝试进入hole失败，强制向上移动
+                        if hole_try_count > 5:
+                            logger.warning(f"hole进入尝试{hole_try_count}次，强制向上移动")
+                            mover._release_all_keys()
+                            kbu.do_press_with_time(Key.up, 500, 50)
+                            hole_try_count = 0
+                            continue
+                        
                         door_box[1] += random.choice([0, 10, -10])  # 随机修改一下y,有时候一直进不去
 
                         # 已经确定目标门,移动到目标位置
@@ -1417,17 +1428,24 @@ def _run_main_script():
                         time.sleep(0.1)
                         kbu.do_press(Key.left)
                         time.sleep(0.1)
-                        kbu.do_press_with_time('x', 5000 if hole_appeared else 2000, 50),
+                        kbu.do_press_with_time('x', 5000 if hole_appeared else 5000, 50),
                         logger.warning("预先长按x 按完x了")
 
                         continue
-                    elif collect_loot_pressed and time.time() - collect_loot_pressed_time < 7:
+                    elif collect_loot_pressed and time.time() - collect_loot_pressed_time < 10:
                         tt = time.time()
                         if 0.1 < tt - int(tt) < 0.2:  # 0.6 < tt - int(tt) < 0.75:
-                            logger.info(f"已经预先按下移动物品了，10s内忽略拾取...{int(7 - (time.time() - collect_loot_pressed_time))}")
+                            logger.info(f"已经预先按下移动物品了，10s内忽略拾取...{int(10 - (time.time() - collect_loot_pressed_time))}")
                         continue
-                    elif collect_loot_pressed and time.time() - collect_loot_pressed_time >= 7:
-                        logger.warning(f"已经预先按下移动物品了，10已经过去了...")
+                    elif collect_loot_pressed and time.time() - collect_loot_pressed_time >= 10:
+                        # 10秒后如果还有掉落物，继续按x捡
+                        if loot_xywh_list or gold_xywh_list:
+                            logger.warning(f"10秒后仍有掉落物，继续按x捡取")
+                            mover._release_all_keys()
+                            time.sleep(0.1)
+                            kbu.do_press_with_time('x', 3000, 50)
+                            collect_loot_pressed_time = time.time()  # 重置时间
+                            continue
                         # 掉落物在范围内,直接拾取
                         if loot_in_range:
                             # 不管了,全部释放掉
