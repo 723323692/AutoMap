@@ -215,12 +215,14 @@ class LoginDialog(QDialog):
             if expire_info:
                 days = expire_info.get('days_left', -1)
                 hours = expire_info.get('hours_left', 0)
+                minutes = expire_info.get('minutes_left', 0)
+                seconds = expire_info.get('seconds_left', 0)
                 expire_dt = expire_info.get('expire_datetime', '')
                 if days >= 0:
                     if days > 0:
-                        time_msg = f"剩余时间: {days}天{hours}小时\n到期时间: {expire_dt}"
+                        time_msg = f"剩余时间: {days}天{hours}时{minutes}分{seconds}秒\n到期时间: {expire_dt}"
                     else:
-                        time_msg = f"剩余时间: {hours}小时\n到期时间: {expire_dt}"
+                        time_msg = f"剩余时间: {hours}时{minutes}分{seconds}秒\n到期时间: {expire_dt}"
                 else:
                     time_msg = "永久有效"
             else:
@@ -305,11 +307,28 @@ class LoginDialog(QDialog):
         self.status_label.setStyleSheet("color: #666; font-size: 12px;")
         QApplication.processEvents()
         
-        success, message = unbind_card(card_key)
+        success, message, expire_info = unbind_card(card_key)
         
         if success:
             self.status_label.setText(message)
             self.status_label.setStyleSheet("color: #2e7d32; font-size: 12px;")
+            
+            # 使用解绑接口返回的到期时间（不再调用verify避免重新绑定）
+            if expire_info:
+                days = expire_info.get('days_left', -1)
+                hours = expire_info.get('hours_left', 0)
+                minutes = expire_info.get('minutes_left', 0)
+                seconds = expire_info.get('seconds_left', 0)
+                expire_dt = expire_info.get('expire_datetime', '')
+                if days >= 0:
+                    if days > 0:
+                        time_msg = f"剩余时间: {days}天{hours}时{minutes}分{seconds}秒\n到期时间: {expire_dt}"
+                    else:
+                        time_msg = f"剩余时间: {hours}时{minutes}分{seconds}秒\n到期时间: {expire_dt}"
+                else:
+                    time_msg = "永久有效"
+                
+                QMessageBox.information(self, "解绑成功", f"{message}\n\n{time_msg}")
         else:
             self.status_label.setText(message)
             self.status_label.setStyleSheet("color: #c62828; font-size: 12px;")

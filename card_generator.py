@@ -138,6 +138,456 @@ class ConfigDialog(QDialog):
         }
 
 
+class EditCardDialog(QDialog):
+    """编辑卡密对话框"""
+    def __init__(self, parent=None, card_key='', card_info=None):
+        super().__init__(parent)
+        self.card_key = card_key
+        self.card_info = card_info or {}
+        self.setWindowTitle(f"编辑卡密 - {card_key}")
+        self.setFixedSize(450, 350)
+        
+        layout = QFormLayout(self)
+        
+        # 卡密（只读）
+        card_label = QLabel(card_key)
+        card_label.setStyleSheet("color: #2c5aa0; font-weight: bold;")
+        layout.addRow("卡密:", card_label)
+        
+        # 状态
+        self.disabled_check = QCheckBox("禁用")
+        self.disabled_check.setChecked(bool(self.card_info.get('disabled')))
+        layout.addRow("状态:", self.disabled_check)
+        
+        # 到期时间
+        self.expire_input = QLineEdit()
+        expire_date = self.card_info.get('expire_date', '')
+        self.expire_input.setText(expire_date if expire_date else '')
+        self.expire_input.setPlaceholderText("格式: 2025-12-25 12:00:00 (留空=永久)")
+        layout.addRow("到期时间:", self.expire_input)
+        
+        # 有效天数
+        self.expire_days_spin = QSpinBox()
+        self.expire_days_spin.setRange(0, 9999)
+        self.expire_days_spin.setValue(self.card_info.get('expire_days', 0) or 0)
+        self.expire_days_spin.setSpecialValueText("永久")
+        layout.addRow("有效天数:", self.expire_days_spin)
+        
+        # 机器码
+        self.machine_input = QLineEdit()
+        self.machine_input.setText(self.card_info.get('machine_code', '') or '')
+        self.machine_input.setPlaceholderText("留空=未绑定")
+        layout.addRow("机器码:", self.machine_input)
+        
+        # 绑定时间
+        self.bind_time_input = QLineEdit()
+        self.bind_time_input.setText(self.card_info.get('bind_time', '') or '')
+        self.bind_time_input.setPlaceholderText("格式: 2025-12-24 12:00:00")
+        layout.addRow("绑定时间:", self.bind_time_input)
+        
+        # 解绑次数（显示已用/最大）
+        unbind_layout = QHBoxLayout()
+        unbind_used = self.card_info.get('unbind_count', 0) or 0
+        self.unbind_used_label = QLabel(f"已用: {unbind_used}")
+        unbind_layout.addWidget(self.unbind_used_label)
+        
+        unbind_layout.addWidget(QLabel("最大:"))
+        self.max_unbind_spin = QSpinBox()
+        self.max_unbind_spin.setRange(0, 99)
+        self.max_unbind_spin.setValue(self.card_info.get('max_unbind_count', 3) if self.card_info.get('max_unbind_count') is not None else 3)
+        unbind_layout.addWidget(self.max_unbind_spin)
+        unbind_layout.addStretch()
+        layout.addRow("解绑次数:", unbind_layout)
+        
+        # 备注
+        self.remark_input = QLineEdit()
+        self.remark_input.setText(self.card_info.get('remark', '') or '')
+        layout.addRow("备注:", self.remark_input)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addRow(buttons)
+    
+    def get_data(self):
+        data = {
+            'max_unbind_count': self.max_unbind_spin.value(),
+            'remark': self.remark_input.text().strip(),
+            'disabled': 1 if self.disabled_check.isChecked() else 0,
+        }
+        
+        expire = self.expire_input.text().strip()
+        if expire:
+            data['expire_date'] = expire
+        
+        expire_days = self.expire_days_spin.value()
+        if expire_days > 0:
+            data['expire_days'] = expire_days
+        
+        machine = self.machine_input.text().strip()
+        data['machine_code'] = machine if machine else None
+        
+        bind_time = self.bind_time_input.text().strip()
+        data['bind_time'] = bind_time if bind_time else None
+        
+        return data
+
+
+# 数据库列名到中文的映射
+COLUMN_NAME_MAP = {
+    'card_key': '卡密',
+    'card_type': '类型',
+    'expire_date': '到期时间',
+    'expire_days': '有效天数',
+    'machine_code': '机器码',
+    'bind_time': '绑定时间',
+    'last_use': '最后使用',
+    'last_ip': '最后IP',
+    'create_time': '创建时间',
+    'remark': '备注',
+    'disabled': '禁用',
+    'unbind_count': '已用解绑',
+    'max_unbind_count': '最大解绑',
+    'total_deducted_hours': '累计扣时',
+}
+
+
+def get_chinese_columns(columns):
+    """将英文列名转换为中文"""
+    return [COLUMN_NAME_MAP.get(col, col) for col in columns]
+
+
+class BatchTimeDialog(QDialog):
+    """批量调整时间对话框"""
+    def __init__(self, parent=None, api_request_func=None):
+        super().__init__(parent)
+        self.api_request = api_request_func
+        self.matched_count = 0
+        self.matched_cards = []
+        self.setWindowTitle("批量调整卡密时间")
+        self.setMinimumSize(900, 600)
+        
+        layout = QVBoxLayout(self)
+        
+        # 使用标签页
+        from PyQt5.QtWidgets import QTabWidget
+        self.tab_widget = QTabWidget()
+        layout.addWidget(self.tab_widget)
+        
+        # 标签页1：快捷查询
+        quick_tab = QWidget()
+        quick_layout = QVBoxLayout(quick_tab)
+        
+        # 查询条件组
+        query_group = QGroupBox("查询条件")
+        query_form = QFormLayout(query_group)
+        
+        # 按激活时间快捷选择
+        bind_btn_layout = QHBoxLayout()
+        bind_btns = [
+            ("今天激活", "bind", 0),
+            ("昨天激活", "bind", 1),
+            ("3天内激活", "bind", 3),
+            ("7天内激活", "bind", 7),
+        ]
+        for text, qtype, days in bind_btns:
+            btn = QPushButton(text)
+            btn.setFixedWidth(75)
+            btn.clicked.connect(lambda _, t=qtype, d=days: self.set_quick_query(t, d))
+            bind_btn_layout.addWidget(btn)
+        bind_btn_layout.addStretch()
+        query_form.addRow("按激活时间:", bind_btn_layout)
+        
+        # 按到期时间快捷选择
+        expire_btn_layout = QHBoxLayout()
+        expire_btns = [
+            ("今天到期", "expire", 0),
+            ("明天到期", "expire", 1),
+            ("3天内到期", "expire", 3),
+            ("7天内到期", "expire", 7),
+        ]
+        for text, qtype, days in expire_btns:
+            btn = QPushButton(text)
+            btn.setFixedWidth(75)
+            btn.clicked.connect(lambda _, t=qtype, d=days: self.set_quick_query(t, d))
+            expire_btn_layout.addWidget(btn)
+        expire_btn_layout.addStretch()
+        query_form.addRow("按到期时间:", expire_btn_layout)
+        
+        self.bind_before_input = QLineEdit()
+        self.bind_before_input.setPlaceholderText("例: 2025-12-23 23:00 (该时间之前激活的)")
+        query_form.addRow("激活时间早于:", self.bind_before_input)
+        
+        self.bind_after_input = QLineEdit()
+        self.bind_after_input.setPlaceholderText("例: 2025-12-20 00:00 (该时间之后激活的)")
+        query_form.addRow("激活时间晚于:", self.bind_after_input)
+        
+        self.expire_before_input = QLineEdit()
+        self.expire_before_input.setPlaceholderText("例: 2025-12-25 00:00 (该时间之前到期的)")
+        query_form.addRow("到期时间早于:", self.expire_before_input)
+        
+        preview_layout = QHBoxLayout()
+        preview_btn = QPushButton("查询")
+        preview_btn.clicked.connect(self.preview_query)
+        preview_layout.addWidget(preview_btn)
+        
+        self.match_label = QLabel("匹配: 0 张卡密")
+        self.match_label.setStyleSheet("color: #2c5aa0; font-weight: bold;")
+        preview_layout.addWidget(self.match_label)
+        preview_layout.addStretch()
+        query_form.addRow("", preview_layout)
+        
+        quick_layout.addWidget(query_group)
+        
+        # 快捷查询结果表格
+        self.quick_result_table = QTableWidget()
+        self.quick_result_table.setSelectionBehavior(QTableWidget.SelectRows)
+        quick_layout.addWidget(self.quick_result_table)
+        
+        self.tab_widget.addTab(quick_tab, "快捷查询")
+        
+        # 标签页2：SQL查询
+        sql_tab = QWidget()
+        sql_layout = QVBoxLayout(sql_tab)
+        
+        sql_group = QGroupBox("自定义SQL查询")
+        sql_form = QVBoxLayout(sql_group)
+        
+        sql_tip = QLabel("输入SELECT语句查询cards表，例如:\nSELECT * FROM cards WHERE bind_time < '2025-12-23 23:00:00'")
+        sql_tip.setStyleSheet("color: #666; font-size: 11px;")
+        sql_form.addWidget(sql_tip)
+        
+        self.sql_input = QTextEdit()
+        self.sql_input.setPlaceholderText("SELECT card_key FROM cards WHERE ...")
+        self.sql_input.setFixedHeight(80)
+        sql_form.addWidget(self.sql_input)
+        
+        sql_btn_layout = QHBoxLayout()
+        exec_sql_btn = QPushButton("执行SQL查询")
+        exec_sql_btn.clicked.connect(self.execute_sql)
+        sql_btn_layout.addWidget(exec_sql_btn)
+        
+        self.sql_result_label = QLabel("结果: 0 条")
+        self.sql_result_label.setStyleSheet("color: #2c5aa0; font-weight: bold;")
+        sql_btn_layout.addWidget(self.sql_result_label)
+        sql_btn_layout.addStretch()
+        sql_form.addLayout(sql_btn_layout)
+        
+        sql_layout.addWidget(sql_group)
+        
+        # SQL结果表格
+        self.sql_result_table = QTableWidget()
+        self.sql_result_table.setSelectionBehavior(QTableWidget.SelectRows)
+        sql_layout.addWidget(self.sql_result_table)
+        
+        self.tab_widget.addTab(sql_tab, "SQL查询")
+        
+        # 操作组（公共）
+        action_group = QGroupBox("批量操作")
+        action_layout = QFormLayout(action_group)
+        
+        time_layout = QHBoxLayout()
+        self.hours_spin = QSpinBox()
+        self.hours_spin.setRange(-9999, 9999)
+        self.hours_spin.setValue(0)
+        self.hours_spin.setFixedWidth(80)
+        time_layout.addWidget(self.hours_spin)
+        time_layout.addWidget(QLabel("小时"))
+        
+        for text, hours in [("-8h", -8), ("+8h", 8), ("+24h", 24), ("+72h", 72)]:
+            btn = QPushButton(text)
+            btn.setFixedWidth(50)
+            btn.clicked.connect(lambda _, h=hours: self.hours_spin.setValue(h))
+            time_layout.addWidget(btn)
+        time_layout.addStretch()
+        action_layout.addRow("调整时间:", time_layout)
+        
+        tip = QLabel("正数=增加时间，负数=减少时间")
+        tip.setStyleSheet("color: #666; font-size: 11px;")
+        action_layout.addRow("", tip)
+        
+        layout.addWidget(action_group)
+        
+        # 按钮
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        
+        cancel_btn = QPushButton("取消")
+        cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(cancel_btn)
+        
+        self.ok_btn = QPushButton("执行批量调整")
+        self.ok_btn.setStyleSheet("background-color: #2c5aa0; color: white; font-weight: bold;")
+        self.ok_btn.clicked.connect(self.accept)
+        btn_layout.addWidget(self.ok_btn)
+        
+        layout.addLayout(btn_layout)
+    
+    def execute_sql(self):
+        """执行SQL查询"""
+        if not self.api_request:
+            return
+        
+        sql = self.sql_input.toPlainText().strip()
+        if not sql:
+            self.sql_result_label.setText("请输入SQL")
+            return
+        
+        result, error = self.api_request('POST', '/api/admin/sql', {'sql': sql})
+        
+        if error:
+            self.sql_result_label.setText(f"错误: {error}")
+            self.sql_result_label.setStyleSheet("color: #c62828; font-weight: bold;")
+            return
+        
+        if result and result.get('success'):
+            count = result.get('count', 0)
+            data = result.get('data', [])
+            columns = result.get('columns', [])
+            self.matched_cards = [row.get('card_key') for row in data if row.get('card_key')]
+            self.matched_count = len(self.matched_cards)
+            
+            self.sql_result_label.setText(f"结果: {count} 条")
+            self.sql_result_label.setStyleSheet("color: #2e7d32; font-weight: bold;")
+            
+            # 用表格展示结果
+            self.sql_result_table.clear()
+            self.sql_result_table.setRowCount(len(data))
+            self.sql_result_table.setColumnCount(len(columns))
+            self.sql_result_table.setHorizontalHeaderLabels(get_chinese_columns(columns))
+            
+            for row_idx, row_data in enumerate(data):
+                for col_idx, col_name in enumerate(columns):
+                    value = row_data.get(col_name, '')
+                    item = QTableWidgetItem(str(value) if value is not None else '')
+                    self.sql_result_table.setItem(row_idx, col_idx, item)
+            
+            self.sql_result_table.resizeColumnsToContents()
+        else:
+            self.sql_result_label.setText(f"失败: {result.get('message', '未知错误')}")
+            self.sql_result_label.setStyleSheet("color: #c62828; font-weight: bold;")
+    
+    def set_quick_query(self, query_type, days):
+        """设置快捷查询"""
+        now = datetime.now()
+        # 清空所有输入
+        self.bind_before_input.setText('')
+        self.bind_after_input.setText('')
+        self.expire_before_input.setText('')
+        
+        if query_type == 'bind':
+            # 按激活时间查询
+            if days == 0:
+                # 今天激活
+                start = now.replace(hour=0, minute=0, second=0)
+                self.bind_after_input.setText(start.strftime('%Y-%m-%d %H:%M'))
+            else:
+                # N天内激活
+                start = (now - timedelta(days=days)).replace(hour=0, minute=0, second=0)
+                self.bind_after_input.setText(start.strftime('%Y-%m-%d %H:%M'))
+        elif query_type == 'expire':
+            # 按到期时间查询
+            if days == 0:
+                # 今天到期
+                end = now.replace(hour=23, minute=59, second=59)
+                self.expire_before_input.setText(end.strftime('%Y-%m-%d %H:%M'))
+                self.bind_after_input.setText('')  # 清空激活时间条件
+            else:
+                # N天内到期
+                end = (now + timedelta(days=days)).replace(hour=23, minute=59, second=59)
+                self.expire_before_input.setText(end.strftime('%Y-%m-%d %H:%M'))
+        
+        self.preview_query()
+    
+    def preview_query(self):
+        """预览查询结果"""
+        if not self.api_request:
+            return
+        
+        # 构建SQL查询
+        conditions = []
+        bind_before = self.bind_before_input.text().strip()
+        bind_after = self.bind_after_input.text().strip()
+        expire_before = self.expire_before_input.text().strip()
+        
+        if bind_before:
+            if len(bind_before) == 16:
+                bind_before += ':59'
+            elif len(bind_before) == 10:
+                bind_before += ' 23:59:59'
+            conditions.append(f"bind_time <= '{bind_before}'")
+        
+        if bind_after:
+            if len(bind_after) == 16:
+                bind_after += ':00'
+            elif len(bind_after) == 10:
+                bind_after += ' 00:00:00'
+            conditions.append(f"bind_time >= '{bind_after}'")
+        
+        if expire_before:
+            if len(expire_before) == 16:
+                expire_before += ':59'
+            elif len(expire_before) == 10:
+                expire_before += ' 23:59:59'
+            conditions.append(f"expire_date <= '{expire_before}'")
+            conditions.append("expire_date IS NOT NULL")
+        
+        if not conditions:
+            conditions.append("machine_code IS NOT NULL")  # 默认查已绑定的
+        
+        where_clause = ' AND '.join(conditions)
+        sql = f"SELECT * FROM cards WHERE {where_clause}"
+        
+        result, error = self.api_request('POST', '/api/admin/sql', {'sql': sql})
+        
+        if result and result.get('success'):
+            count = result.get('count', 0)
+            data = result.get('data', [])
+            columns = result.get('columns', [])
+            self.matched_cards = [row.get('card_key') for row in data if row.get('card_key')]
+            self.matched_count = count
+            
+            self.match_label.setText(f"匹配: {count} 张卡密")
+            if count > 0:
+                self.match_label.setStyleSheet("color: #2e7d32; font-weight: bold;")
+            else:
+                self.match_label.setStyleSheet("color: #c62828; font-weight: bold;")
+            
+            # 用表格展示结果
+            self.quick_result_table.clear()
+            self.quick_result_table.setRowCount(len(data))
+            self.quick_result_table.setColumnCount(len(columns))
+            self.quick_result_table.setHorizontalHeaderLabels(get_chinese_columns(columns))
+            
+            for row_idx, row_data in enumerate(data):
+                for col_idx, col_name in enumerate(columns):
+                    value = row_data.get(col_name, '')
+                    item = QTableWidgetItem(str(value) if value is not None else '')
+                    self.quick_result_table.setItem(row_idx, col_idx, item)
+            
+            self.quick_result_table.resizeColumnsToContents()
+        else:
+            self.match_label.setText(f"查询失败: {result.get('message', '') if result else error}")
+            self.match_label.setStyleSheet("color: #c62828; font-weight: bold;")
+    
+    def get_data(self):
+        data = {'hours': self.hours_spin.value()}
+        
+        bind_before = self.bind_before_input.text().strip()
+        if bind_before:
+            if len(bind_before) == 16:
+                bind_before += ':59'
+            data['bind_date_end'] = bind_before
+        
+        bind_after = self.bind_after_input.text().strip()
+        if bind_after:
+            if len(bind_after) == 16:
+                bind_after += ':00'
+            data['bind_date_start'] = bind_after
+        
+        return data
+
+
 class CardGeneratorWindow(QMainWindow):
     """卡密生成器主窗口"""
     
@@ -227,6 +677,10 @@ class CardGeneratorWindow(QMainWindow):
         
         toolbar.addStretch()
         
+        batch_time_btn = QPushButton("批量调整时间")
+        batch_time_btn.clicked.connect(self.batch_adjust_time)
+        toolbar.addWidget(batch_time_btn)
+        
         refresh_btn = QPushButton("刷新")
         refresh_btn.clicked.connect(self.load_cards)
         toolbar.addWidget(refresh_btn)
@@ -249,17 +703,18 @@ class CardGeneratorWindow(QMainWindow):
             '卡密', '状态', '到期时间', '剩余', '机器码', '绑定时间', '解绑次数', '最后使用', '备注', '操作'
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setStretchLastSection(False)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setColumnWidth(0, 150)
-        self.table.setColumnWidth(1, 60)
-        self.table.setColumnWidth(2, 140)
-        self.table.setColumnWidth(3, 80)
-        self.table.setColumnWidth(4, 140)
-        self.table.setColumnWidth(5, 130)
-        self.table.setColumnWidth(6, 70)
-        self.table.setColumnWidth(7, 130)
-        self.table.setColumnWidth(8, 80)
+        self.table.setColumnWidth(0, 180)
+        self.table.setColumnWidth(1, 55)
+        self.table.setColumnWidth(2, 135)
+        self.table.setColumnWidth(3, 70)
+        self.table.setColumnWidth(4, 135)
+        self.table.setColumnWidth(5, 125)
+        self.table.setColumnWidth(6, 60)
+        self.table.setColumnWidth(7, 125)
+        self.table.setColumnWidth(8, 60)
+        self.table.setColumnWidth(9, 130)  # 操作列加宽
         list_layout.addWidget(self.table)
         
         layout.addWidget(list_group)
@@ -397,7 +852,8 @@ class CardGeneratorWindow(QMainWindow):
             
             # 解绑次数
             unbind_count = info.get('unbind_count', 0) or 0
-            self.table.setItem(row, 6, QTableWidgetItem(f"{unbind_count}/3"))
+            max_unbind = info.get('max_unbind_count', 3) if info.get('max_unbind_count') is not None else 3
+            self.table.setItem(row, 6, QTableWidgetItem(f"{unbind_count}/{max_unbind}"))
             
             # 最后使用
             last_use = info.get('last_use', '') or ''
@@ -410,25 +866,30 @@ class CardGeneratorWindow(QMainWindow):
             # 操作按钮
             btn_widget = QWidget()
             btn_layout = QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(2, 2, 2, 2)
-            btn_layout.setSpacing(2)
+            btn_layout.setContentsMargins(4, 2, 4, 2)
+            btn_layout.setSpacing(4)
             
             if info.get('disabled'):
                 enable_btn = QPushButton("启用")
-                enable_btn.setFixedSize(45, 24)
+                enable_btn.setFixedSize(38, 22)
                 enable_btn.clicked.connect(lambda _, k=key: self.toggle_card(k))
                 btn_layout.addWidget(enable_btn)
             else:
                 disable_btn = QPushButton("禁用")
-                disable_btn.setFixedSize(45, 24)
+                disable_btn.setFixedSize(38, 22)
                 disable_btn.clicked.connect(lambda _, k=key: self.toggle_card(k))
                 btn_layout.addWidget(disable_btn)
             
             if info.get('machine_code'):
                 unbind_btn = QPushButton("解绑")
-                unbind_btn.setFixedSize(45, 24)
+                unbind_btn.setFixedSize(38, 22)
                 unbind_btn.clicked.connect(lambda _, k=key: self.unbind_card(k))
                 btn_layout.addWidget(unbind_btn)
+            
+            edit_btn = QPushButton("编辑")
+            edit_btn.setFixedSize(38, 22)
+            edit_btn.clicked.connect(lambda _, k=key, i=info: self.edit_card(k, i))
+            btn_layout.addWidget(edit_btn)
             
             self.table.setCellWidget(row, 9, btn_widget)
         
@@ -544,6 +1005,49 @@ class CardGeneratorWindow(QMainWindow):
                 self.statusBar().showMessage("解绑成功")
             else:
                 QMessageBox.warning(self, "错误", result.get('message', '解绑失败'))
+    
+    def edit_card(self, key, info):
+        """编辑卡密"""
+        dialog = EditCardDialog(self, key, info)
+        if dialog.exec_() == QDialog.Accepted:
+            data = dialog.get_data()
+            result, error = self.api_request('POST', f'/api/admin/card/{key}/update', data)
+            if error:
+                QMessageBox.warning(self, "错误", error)
+                return
+            if result and result.get('success'):
+                self.load_cards()
+                self.statusBar().showMessage("更新成功")
+            else:
+                QMessageBox.warning(self, "错误", result.get('message', '更新失败'))
+    
+    def batch_adjust_time(self):
+        """批量调整时间"""
+        dialog = BatchTimeDialog(self, api_request_func=self.api_request)
+        if dialog.exec_() == QDialog.Accepted:
+            data = dialog.get_data()
+            if data.get('hours', 0) == 0:
+                QMessageBox.warning(self, "提示", "请输入要调整的小时数")
+                return
+            
+            # 确认操作
+            reply = QMessageBox.question(
+                self, "确认操作",
+                f"确定要对匹配的卡密调整 {data.get('hours')} 小时吗？",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if reply != QMessageBox.Yes:
+                return
+            
+            result, error = self.api_request('POST', '/api/admin/cards/batch_time', data)
+            if error:
+                QMessageBox.warning(self, "错误", error)
+                return
+            if result and result.get('success'):
+                self.load_cards()
+                QMessageBox.information(self, "成功", result.get('message', '操作成功'))
+            else:
+                QMessageBox.warning(self, "错误", result.get('message', '操作失败'))
     
     def delete_selected(self):
         """删除选中的卡密"""

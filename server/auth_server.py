@@ -170,12 +170,17 @@ def init_db():
             remark TEXT,
             disabled INTEGER DEFAULT 0,
             unbind_count INTEGER DEFAULT 0,
+            max_unbind_count INTEGER DEFAULT 3,
             total_deducted_hours INTEGER DEFAULT 0
         )
     ''')
     # 添加新字段（如果表已存在）
     try:
         conn.execute('ALTER TABLE cards ADD COLUMN unbind_count INTEGER DEFAULT 0')
+    except:
+        pass
+    try:
+        conn.execute('ALTER TABLE cards ADD COLUMN max_unbind_count INTEGER DEFAULT 3')
     except:
         pass
     try:
@@ -271,6 +276,7 @@ def row_to_dict(row):
         'remark': row['remark'],
         'disabled': bool(row['disabled']),
         'unbind_count': row['unbind_count'] or 0,
+        'max_unbind_count': row['max_unbind_count'] if row['max_unbind_count'] is not None else 3,
         'total_deducted_hours': row['total_deducted_hours'] or 0
     }
 
@@ -319,15 +325,17 @@ def verify_card():
             log_access(card_key, ip, 'verify', 'fail', '机器码不匹配')
             return encrypt_response({'success': False, 'message': '该卡密已绑定其他设备'})
     else:
-        # 首次激活，设置到期时间
+        # 首次激活，设置到期时间（只有expire_date为空时才计算）
         expire_days = row['expire_days']
-        if expire_days:
+        expire_date = row['expire_date']  # 获取当前的expire_date
+        if expire_days and not expire_date:
+            # 只有没有expire_date时才根据expire_days计算
             from datetime import timedelta
             expire_date = (datetime.now() + timedelta(days=expire_days)).strftime('%Y-%m-%d %H:%M:%S')
             db.execute('UPDATE cards SET machine_code = ?, bind_time = ?, expire_date = ? WHERE card_key = ?',
                        (machine_code, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), expire_date, card_key))
         else:
-            # 永久卡密
+            # 已有expire_date（解绑后重新绑定）或永久卡密，只更新绑定信息
             db.execute('UPDATE cards SET machine_code = ?, bind_time = ? WHERE card_key = ?',
                        (machine_code, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), card_key))
         # 重新获取更新后的数据
@@ -343,6 +351,8 @@ def verify_card():
     
     days_left = -1
     hours_left = -1
+    minutes_left = -1
+    seconds_left = -1
     expire_datetime = None
     if expire_date:
         # 支持两种格式：纯日期和带时间
@@ -354,9 +364,11 @@ def verify_card():
         
         expire_datetime = expire_dt.strftime('%Y-%m-%d %H:%M:%S')
         delta = expire_dt - datetime.now()
-        total_seconds = delta.total_seconds()
-        days_left = max(0, int(total_seconds // 86400))
-        hours_left = max(0, int((total_seconds % 86400) // 3600))
+        total_seconds = max(0, delta.total_seconds())
+        days_left = int(total_seconds // 86400)
+        hours_left = int((total_seconds % 86400) // 3600)
+        minutes_left = int((total_seconds % 3600) // 60)
+        seconds_left = int(total_seconds % 60)
     
     log_access(card_key, ip, 'verify', 'success', '')
     
@@ -368,6 +380,8 @@ def verify_card():
             'expire_datetime': expire_datetime or '永久',
             'days_left': days_left,
             'hours_left': hours_left,
+            'minutes_left': minutes_left,
+            'seconds_left': seconds_left,
             'remark': row['remark'] or ''
         }
     })
@@ -452,10 +466,9 @@ def get_unbind_info():
 @security_check(verify_endpoint=True)
 @verify_sign
 def user_unbind():
-    """用户自助解绑（扣除8小时，限制3次）"""
+    """用户自助解绑（扣除8小时）"""
     from datetime import timedelta
     
-    MAX_UNBIND_COUNT = 3  # 最大解绑次数
     DEDUCT_HOURS = 8      # 每次扣除小时数
     
     ip = get_client_ip()
@@ -476,11 +489,12 @@ def user_unbind():
     if not row['machine_code']:
         return jsonify({'success': False, 'message': '该卡密未绑定设备'})
     
-    # 检查解绑次数
+    # 检查解绑次数（使用卡密自己的最大解绑次数）
     unbind_count = row['unbind_count'] or 0
-    if unbind_count >= MAX_UNBIND_COUNT:
+    max_unbind = row['max_unbind_count'] if row['max_unbind_count'] is not None else 3
+    if unbind_count >= max_unbind:
         log_access(card_key, ip, 'unbind', 'fail', '解绑次数已用完')
-        return jsonify({'success': False, 'message': f'解绑次数已用完（最多{MAX_UNBIND_COUNT}次）'})
+        return jsonify({'success': False, 'message': f'解绑次数已用完（最多{max_unbind}次）'})
     
     # 检查有效期，扣除8小时
     expire_date = row['expire_date']
@@ -509,6 +523,31 @@ def user_unbind():
                 total_deducted_hours = ?
             WHERE card_key = ?
         ''', (new_expire_str, unbind_count + 1, total_deducted, card_key))
+        
+        db.commit()
+        remaining = max_unbind - unbind_count - 1
+        
+        # 计算剩余时间
+        delta = new_expire - datetime.now()
+        total_seconds = max(0, delta.total_seconds())
+        days_left = int(total_seconds // 86400)
+        hours_left = int((total_seconds % 86400) // 3600)
+        minutes_left = int((total_seconds % 3600) // 60)
+        seconds_left = int(total_seconds % 60)
+        
+        log_access(card_key, ip, 'unbind', 'success', f'用户自助解绑，剩余{remaining}次')
+        
+        return jsonify({
+            'success': True, 
+            'message': f'解绑成功，已扣除{DEDUCT_HOURS}小时，剩余解绑次数: {remaining}次',
+            'data': {
+                'days_left': days_left,
+                'hours_left': hours_left,
+                'minutes_left': minutes_left,
+                'seconds_left': seconds_left,
+                'expire_datetime': new_expire_str
+            }
+        })
     else:
         # 永久卡密也记录解绑次数
         db.execute('''
@@ -518,15 +557,20 @@ def user_unbind():
                 unbind_count = ?
             WHERE card_key = ?
         ''', (unbind_count + 1, card_key))
-    
-    db.commit()
-    remaining = MAX_UNBIND_COUNT - unbind_count - 1
-    log_access(card_key, ip, 'unbind', 'success', f'用户自助解绑，剩余{remaining}次')
-    
-    return jsonify({
-        'success': True, 
-        'message': f'解绑成功，已扣除{DEDUCT_HOURS}小时，剩余解绑次数: {remaining}次'
-    })
+        
+        db.commit()
+        remaining = max_unbind - unbind_count - 1
+        log_access(card_key, ip, 'unbind', 'success', f'用户自助解绑，剩余{remaining}次')
+        
+        return jsonify({
+            'success': True, 
+            'message': f'解绑成功，剩余解绑次数: {remaining}次',
+            'data': {
+                'days_left': -1,
+                'hours_left': -1,
+                'expire_datetime': '永久'
+            }
+        })
 
 
 # ========== 管理接口 ==========
@@ -623,6 +667,241 @@ def unbind_card(card_key):
     if result.rowcount > 0:
         return jsonify({'success': True, 'message': '解绑成功'})
     return jsonify({'success': False, 'message': '卡密不存在'})
+
+
+@app.route('/api/admin/card/<card_key>/update', methods=['POST'])
+@admin_required
+def update_card(card_key):
+    """更新卡密信息"""
+    card_key = card_key.upper()
+    data = request.get_json()
+    
+    db = get_db()
+    row = db.execute('SELECT * FROM cards WHERE card_key = ?', (card_key,)).fetchone()
+    if not row:
+        return jsonify({'success': False, 'message': '卡密不存在'})
+    
+    updates = []
+    params = []
+    
+    # 更新已用解绑次数
+    if 'unbind_count' in data:
+        unbind_count = int(data['unbind_count'])
+        if unbind_count < 0:
+            unbind_count = 0
+        updates.append('unbind_count = ?')
+        params.append(unbind_count)
+    
+    # 更新最大解绑次数
+    if 'max_unbind_count' in data:
+        max_unbind = int(data['max_unbind_count'])
+        if max_unbind < 0:
+            max_unbind = 0
+        updates.append('max_unbind_count = ?')
+        params.append(max_unbind)
+    
+    # 更新到期时间
+    if 'expire_date' in data:
+        updates.append('expire_date = ?')
+        params.append(data['expire_date'])
+    
+    # 更新有效天数
+    if 'expire_days' in data:
+        updates.append('expire_days = ?')
+        params.append(data['expire_days'])
+    
+    # 更新备注
+    if 'remark' in data:
+        updates.append('remark = ?')
+        params.append(data['remark'])
+    
+    # 更新禁用状态
+    if 'disabled' in data:
+        updates.append('disabled = ?')
+        params.append(int(data['disabled']))
+    
+    # 更新机器码
+    if 'machine_code' in data:
+        updates.append('machine_code = ?')
+        params.append(data['machine_code'])
+    
+    # 更新绑定时间
+    if 'bind_time' in data:
+        updates.append('bind_time = ?')
+        params.append(data['bind_time'])
+    
+    if not updates:
+        return jsonify({'success': False, 'message': '没有要更新的字段'})
+    
+    params.append(card_key)
+    sql = f"UPDATE cards SET {', '.join(updates)} WHERE card_key = ?"
+    db.execute(sql, params)
+    db.commit()
+    
+    return jsonify({'success': True, 'message': '更新成功'})
+
+
+@app.route('/api/admin/cards/batch_time', methods=['POST'])
+@admin_required
+def batch_update_time():
+    """
+    批量调整卡密时间
+    参数:
+    - bind_date_start: 绑定时间起始（可选）
+    - bind_date_end: 绑定时间结束（可选）
+    - hours: 调整小时数（正数增加，负数减少）
+    """
+    from datetime import timedelta
+    
+    data = request.get_json()
+    bind_date_start = data.get('bind_date_start')
+    bind_date_end = data.get('bind_date_end')
+    hours = data.get('hours', 0)
+    
+    if not hours:
+        return jsonify({'success': False, 'message': '请指定调整小时数'})
+    
+    hours = int(hours)
+    
+    db = get_db()
+    
+    # 构建查询条件
+    conditions = ['expire_date IS NOT NULL']  # 只处理有到期时间的卡密
+    params = []
+    
+    if bind_date_start:
+        conditions.append('bind_time >= ?')
+        params.append(bind_date_start)
+    
+    if bind_date_end:
+        conditions.append('bind_time <= ?')
+        params.append(bind_date_end)
+    
+    where_clause = ' AND '.join(conditions)
+    
+    # 查询符合条件的卡密
+    rows = db.execute(f'SELECT card_key, expire_date FROM cards WHERE {where_clause}', params).fetchall()
+    
+    if not rows:
+        return jsonify({'success': False, 'message': '没有找到符合条件的卡密'})
+    
+    updated_count = 0
+    for row in rows:
+        card_key = row['card_key']
+        expire_date = row['expire_date']
+        
+        try:
+            if ' ' in expire_date:
+                expire_dt = datetime.strptime(expire_date, '%Y-%m-%d %H:%M:%S')
+            else:
+                expire_dt = datetime.strptime(expire_date, '%Y-%m-%d')
+                expire_dt = expire_dt.replace(hour=23, minute=59, second=59)
+            
+            new_expire = expire_dt + timedelta(hours=hours)
+            new_expire_str = new_expire.strftime('%Y-%m-%d %H:%M:%S')
+            
+            db.execute('UPDATE cards SET expire_date = ? WHERE card_key = ?', (new_expire_str, card_key))
+            updated_count += 1
+        except Exception as e:
+            continue
+    
+    db.commit()
+    
+    action = '增加' if hours > 0 else '减少'
+    return jsonify({
+        'success': True, 
+        'message': f'成功{action}{abs(hours)}小时，共更新{updated_count}张卡密'
+    })
+
+
+@app.route('/api/admin/cards/search', methods=['GET'])
+@admin_required
+def search_cards():
+    """
+    搜索卡密
+    参数:
+    - bind_date_start: 绑定时间起始
+    - bind_date_end: 绑定时间结束
+    - status: 状态（bound=已绑定, unbound=未绑定, all=全部）
+    """
+    bind_date_start = request.args.get('bind_date_start')
+    bind_date_end = request.args.get('bind_date_end')
+    status = request.args.get('status', 'all')
+    
+    db = get_db()
+    
+    conditions = []
+    params = []
+    
+    if bind_date_start:
+        conditions.append('bind_time >= ?')
+        params.append(bind_date_start)
+    
+    if bind_date_end:
+        conditions.append('bind_time <= ?')
+        params.append(bind_date_end)
+    
+    if status == 'bound':
+        conditions.append('machine_code IS NOT NULL')
+    elif status == 'unbound':
+        conditions.append('machine_code IS NULL')
+    
+    where_clause = ' AND '.join(conditions) if conditions else '1=1'
+    
+    rows = db.execute(f'SELECT * FROM cards WHERE {where_clause} ORDER BY bind_time DESC', params).fetchall()
+    
+    cards = []
+    for row in rows:
+        try:
+            card = dict(row)
+            card['unbind_count'] = card.get('unbind_count') or 0
+            card['disabled'] = bool(card.get('disabled'))
+            cards.append(card)
+        except Exception:
+            continue
+    
+    return jsonify({'success': True, 'data': cards, 'count': len(cards)})
+
+
+@app.route('/api/admin/sql', methods=['POST'])
+@admin_required
+def execute_sql():
+    """
+    执行自定义SQL查询（仅支持SELECT）
+    """
+    data = request.get_json()
+    sql = data.get('sql', '').strip()
+    
+    if not sql:
+        return jsonify({'success': False, 'message': 'SQL不能为空'})
+    
+    # 安全检查：只允许SELECT查询
+    sql_upper = sql.upper()
+    if not sql_upper.startswith('SELECT'):
+        return jsonify({'success': False, 'message': '只支持SELECT查询'})
+    
+    # 禁止危险操作
+    dangerous = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'CREATE', 'TRUNCATE']
+    for word in dangerous:
+        if word in sql_upper:
+            return jsonify({'success': False, 'message': f'不允许使用 {word} 操作'})
+    
+    try:
+        db = get_db()
+        rows = db.execute(sql).fetchall()
+        
+        results = []
+        for row in rows:
+            results.append(dict(row))
+        
+        return jsonify({
+            'success': True, 
+            'data': results, 
+            'count': len(results),
+            'columns': list(results[0].keys()) if results else []
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'SQL执行错误: {str(e)}'})
 
 
 @app.route('/api/admin/logs', methods=['GET'])

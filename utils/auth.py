@@ -456,11 +456,11 @@ def get_unbind_info(card_key):
 def unbind_card(card_key):
     """
     用户自助解绑（扣除8小时）
-    返回: (success, message)
+    返回: (success, message, expire_info)
     """
     machine_code = get_machine_code()
     if not machine_code:
-        return False, "无法获取机器码"
+        return False, "无法获取机器码", None
     
     data = {
         'card_key': card_key.strip().upper(),
@@ -484,14 +484,15 @@ def unbind_card(card_key):
                 _auth_state['verified'] = False
                 _auth_state['card_key'] = None
         
-        return result.get('success', False), result.get('message', '解绑失败')
+        expire_info = result.get('data', None)
+        return result.get('success', False), result.get('message', '解绑失败'), expire_info
         
     except requests.exceptions.ConnectionError:
-        return False, "无法连接到服务器"
+        return False, "无法连接到服务器", None
     except requests.exceptions.Timeout:
-        return False, "服务器响应超时"
+        return False, "服务器响应超时", None
     except Exception as e:
-        return False, f"解绑出错: {str(e)}"
+        return False, f"解绑出错: {str(e)}", None
 
 
 # 模块加载时的检查
