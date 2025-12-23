@@ -1,4 +1,4 @@
-﻿# -*- coding:utf-8 -*-
+# -*- coding:utf-8 -*-
 """
 DNF自动化脚本 - PyQt5 图形界面
 支持按钮和热键控制，日志输出到GUI
