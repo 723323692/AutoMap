@@ -655,27 +655,169 @@ def start_keyboard_listener():
     
     logger.info(f"已启动热键轮询监听: {stop_key}(VK={hex(stop_vk)})=停止, {pause_key}(VK={hex(pause_vk)})=暂停/继续")
     
-    # 防抖动
+    # 防抖动 - 增加防抖时间，避免重复触发
     last_stop_time = 0
     last_pause_time = 0
-    debounce_interval = 0.3
+    debounce_interval = 0.5  # 增加到500ms
+    
+    # 记录上次按键状态，只在按下瞬间触发
+    last_stop_state = False
+    last_pause_state = False
     
     while not stop_be_pressed and _hotkey_listener_running:
         current_time = time.time()
         
         # 检查停止键 (GetAsyncKeyState返回最高位为1表示按下)
-        if stop_vk and user32.GetAsyncKeyState(stop_vk) & 0x8000:
+        stop_pressed = bool(stop_vk and user32.GetAsyncKeyState(stop_vk) & 0x8000)
+        if stop_pressed and not last_stop_state:  # 只在按下瞬间触发（上升沿）
             if current_time - last_stop_time >= debounce_interval:
                 last_stop_time = current_time
                 on_stop_hotkey()
+        last_stop_state = stop_pressed
         
         # 检查暂停键
-        if pause_vk and user32.GetAsyncKeyState(pause_vk) & 0x8000:
+        pause_pressed = bool(pause_vk and user32.GetAsyncKeyState(pause_vk) & 0x8000)
+        if pause_pressed and not last_pause_state:  # 只在按下瞬间触发（上升沿）
             if current_time - last_pause_time >= debounce_interval:
                 last_pause_time = current_time
                 on_pause_hotkey()
+        last_pause_state = pause_pressed
         
         time.sleep(0.05)  # 50ms轮询间隔
+
+
+def self_handle_stuck(hero_x, hero_y, kbd_current_direction, door_xywh_list, door_boss_xywh_list, 
+                      obstacle_xywh_list, hero_xywh, img0, rows, cols, path_stack):
+    """
+    小卡处理函数 - 角色卡住时的绕行逻辑
+    
+    返回: (处理类型, 绕行方向)
+    
+    优先级顺序:
+    1. 左上角/右上角特殊处理
+    2. 小地图分析
+    3. 障碍物绕行
+    4. 边缘强制移动
+    5. 站在门上处理
+    6. 随机方向
+    """
+    stuck_handle_type = "随机方向"
+    random_direct = random.choice(random.choice([kbu.single_direct, kbu.double_direct]))
+    
+    # ========== 1. 左上角/右上角特殊处理（最高优先级）==========
+    if hero_y < 420 and hero_x < 300:
+        return "上小卡处理-左上角", random.choice(["RIGHT", "RIGHT_DOWN", "DOWN"])
+    
+    if hero_y < 420 and hero_x > 750:
+        return "上小卡处理-右上角", random.choice(["LEFT", "LEFT_DOWN", "DOWN"])
+    
+    # ========== 2. 小地图分析 ==========
+    previous = None
+    try:
+        map_crop = map_util.get_small_map_region_img(img0, rows, cols)
+        current_room = map_util.current_room_index_cropped(map_crop, rows, cols)
+        if current_room != (-1, -1) and path_stack:
+            if current_room in [item[0] for item in path_stack]:
+                for ii in range(len(path_stack) - 1, 0, -1):
+                    if path_stack[ii][0] == current_room:
+                        previous = path_stack[ii - 1][1]
+                        stuck_handle_type = f"小地图分析(房间{current_room},来自{previous})"
+                        if hero_x < 100 and door_xywh_list and len(door_xywh_list) == 1 and door_xywh_list[0][0] < 100:
+                            random_direct = random.choice(list(filter(
+                                lambda x1: x1 != get_opposite_direction(previous) and x1 != kbd_current_direction and x1 not in ["DOWN", "LEFT"], kbu.single_direct)))
+                        else:
+                            random_direct = random.choice(list(filter(
+                                lambda x1: x1 != get_opposite_direction(previous) and x1 != kbd_current_direction, kbu.single_direct)))
+                        break
+            else:
+                previous = path_stack[-1][1]
+                stuck_handle_type = f"小地图分析(房间{current_room},未finder,来自{previous})"
+                random_direct = random.choice(list(filter(
+                    lambda x1: x1 != get_opposite_direction(previous) and x1 != kbd_current_direction, kbu.single_direct)))
+            
+            # 通用上方卡住处理
+            if hero_y < 420 and kbd_current_direction and "UP" in kbd_current_direction:
+                if hero_x < 500:
+                    return "上小卡处理-左侧", random.choice(["RIGHT", "RIGHT_DOWN"])
+                else:
+                    return "上小卡处理-右侧", random.choice(["LEFT", "LEFT_DOWN"])
+    except Exception as e:
+        logger.error(f"小地图分析异常: {e}")
+    
+    # ========== 3. 障碍物绕行 ==========
+    if obstacle_xywh_list and kbd_current_direction:
+        nearest_obs = None
+        min_dist = float('inf')
+        for obs in obstacle_xywh_list:
+            dist = ((obs[0] - hero_x) ** 2 + (obs[1] - hero_y) ** 2) ** 0.5
+            if dist < min_dist:
+                min_dist = dist
+                nearest_obs = obs
+        
+        if nearest_obs and min_dist < 200:  # 只处理近距离障碍物
+            obs_x, obs_y = nearest_obs[0], nearest_obs[1]
+            obs_w = nearest_obs[2] if len(nearest_obs) > 2 else 60
+            obs_h = nearest_obs[3] if len(nearest_obs) > 3 else 40
+            
+            if "RIGHT" in kbd_current_direction or "LEFT" in kbd_current_direction:
+                base_dir = "RIGHT" if "RIGHT" in kbd_current_direction else "LEFT"
+                if hero_y < 350:
+                    return f"障碍物绕行(距离{min_dist:.0f})", f"{base_dir}_DOWN"
+                elif hero_y > 420:
+                    return f"障碍物绕行(距离{min_dist:.0f})", f"{base_dir}_UP"
+                else:
+                    dist_up = abs(hero_y - (obs_y - obs_h / 2))
+                    dist_down = abs((obs_y + obs_h / 2) - hero_y)
+                    if dist_up < dist_down:
+                        return f"障碍物绕行(距离{min_dist:.0f})", f"{base_dir}_UP"
+                    else:
+                        return f"障碍物绕行(距离{min_dist:.0f})", f"{base_dir}_DOWN"
+            
+            elif "UP" in kbd_current_direction or "DOWN" in kbd_current_direction:
+                base_dir = "UP" if "UP" in kbd_current_direction else "DOWN"
+                if hero_x < 150:
+                    return f"障碍物绕行(距离{min_dist:.0f})", f"RIGHT_{base_dir}"
+                elif hero_x > 900:
+                    return f"障碍物绕行(距离{min_dist:.0f})", f"LEFT_{base_dir}"
+                else:
+                    dist_left = abs(hero_x - (obs_x - obs_w / 2))
+                    dist_right = abs((obs_x + obs_w / 2) - hero_x)
+                    if dist_left < dist_right:
+                        return f"障碍物绕行(距离{min_dist:.0f})", f"LEFT_{base_dir}"
+                    else:
+                        return f"障碍物绕行(距离{min_dist:.0f})", f"RIGHT_{base_dir}"
+    
+    # ========== 4. 边缘强制移动 ==========
+    img_width = img0.shape[1] if img0 is not None else 1024
+    img_height = img0.shape[0] if img0 is not None else 600
+    
+    if hero_y < 400 and hero_x > 850:
+        return "边缘强制(右上角)", "LEFT"
+    if hero_x > img_width * 3 // 4:
+        return "边缘强制(右边)", "LEFT"
+    if hero_y < 400 and hero_x < 200:
+        return "边缘强制(左上角)", "RIGHT"
+    if hero_x < img_width // 5:
+        return "边缘强制(左边)", "RIGHT"
+    
+    # ========== 5. 站在门上处理 ==========
+    all_doors = door_xywh_list + door_boss_xywh_list
+    if all_doors and hero_xywh:
+        near_door = exist_near(hero_xywh, all_doors, 100)
+        if near_door:
+            if hero_x < img_width // 5:
+                if hero_y < img_height * 3 // 5:
+                    return "站在门上", random.choice(['RIGHT', 'RIGHT_DOWN'])
+                return "站在门上", "RIGHT"
+            elif hero_x > img_width * 4 // 5:
+                return "站在门上", "LEFT"
+            elif hero_y > img_height * 3 // 5:
+                return "站在门上", random.choice(["UP", "LEFT", "RIGHT"])
+            else:
+                return "站在门上", random.choice(["DOWN", "LEFT", "RIGHT"])
+    
+    # ========== 6. 返回默认 ==========
+    return stuck_handle_type, random_direct
 
 
 def analyse_det_result(results, hero_height, img):
@@ -984,10 +1126,19 @@ def adjust_stutter_alarm(start_time,role_name,role_no,fight_count,handle):
             logger.warning(f'第【{role_no}】个角色，【{role_name}】第【{fight_count}】次刷图,卡门【{actual_elapsed:.1f}】秒,尝试按键移动角色至上个门口~~~~~~')
             # 先释放所有按键，否则游戏可能不响应
             mover._release_all_keys()
-            time.sleep(0.5)
+            time.sleep(0.3)
+            # 暂停主循环，防止按键被重新按下
+            pause_event.clear()
+            time.sleep(0.3)
+            # 再次释放确保干净
+            mover._release_all_keys()
+            time.sleep(0.2)
             # 用pynput按键，和技能按键一样的方式
             kbu.do_press_with_time(dnf.Key_collect_role, 300, 200)
             logger.info(f'已按下 numpad_7 键，返回上一地图')
+            time.sleep(1)
+            # 恢复主循环
+            pause_event.set()
             count = True
         elif actual_elapsed > 100:
             # 发送邮件前再次检查停止标志
@@ -1591,134 +1742,17 @@ def _run_main_script():
                     fq.enqueue((hero_xywh[0], hero_xywh[1]))
                     hero_pos_is_stable = fq.coords_is_stable(threshold=10, window_size=10)
                     if hero_pos_is_stable and not sss_appeared and stuck_room_idx is None:
-                        random_direct = random.choice(random.choice([kbu.single_direct, kbu.double_direct]))
                         kbd_current_direction = mover.get_current_direction()
                         hero_x, hero_y = hero_xywh[0], hero_xywh[1]
-                        stuck_handle_type = "随机方向"  # 记录触发的处理类型
                         
-                        # ========== 1. 小地图分析 ==========
-                        previous = None
-                        try:
-                            map_crop = map_util.get_small_map_region_img(img0, rows, cols)
-                            current_room = map_util.current_room_index_cropped(map_crop, rows, cols)
-                            if current_room != (-1, -1):
-                                if current_room in [item[0] for item in path_stack]:
-                                    for ii in range(len(path_stack) - 1, 0, -1):
-                                        if path_stack[ii][0] == current_room:
-                                            previous = path_stack[ii - 1][1]
-                                            stuck_handle_type = f"小地图分析(房间{current_room},来自{previous})"
-                                            if hero_x < 100 and door_xywh_list and len(door_xywh_list) == 1 and door_xywh_list[0][0] < 100:
-                                                random_direct = random.choice(list(filter(
-                                                    lambda x1: x1 != get_opposite_direction(previous) and x1 != kbd_current_direction and x1 not in ["DOWN", "LEFT"], kbu.single_direct)))
-                                            elif 882 < hero_x < 888 and 300 < hero_y < 305 and kbd_current_direction == "DOWN" and previous == "RIGHT":
-                                                random_direct = "LEFT_DOWN"
-                                            else:
-                                                random_direct = random.choice(list(filter(
-                                                    lambda x1: x1 != get_opposite_direction(previous) and x1 != kbd_current_direction, kbu.single_direct)))
-                                            break
-                                else:
-                                    previous = path_stack[-1][1]
-                                    stuck_handle_type = f"小地图分析(房间{current_room},未finder,来自{previous})"
-                                    random_direct = random.choice(list(filter(
-                                        lambda x1: x1 != get_opposite_direction(path_stack[-1][1]) and x1 != kbd_current_direction, kbu.single_direct)))
-                                
-                                # 上小卡特殊处理
-                                if hero_y < 400 and kbd_current_direction == "UP" and previous == "RIGHT" and hero_x < 630:
-                                    stuck_handle_type = "上小卡处理1"
-                                    random_direct = random.choice(["RIGHT", "RIGHT_DOWN"])
-                                elif hero_y < 400 and kbd_current_direction == "UP" and previous == "LEFT" and hero_x > 420:
-                                    stuck_handle_type = "上小卡处理2"
-                                    random_direct = random.choice(["LEFT", "LEFT_DOWN"])
-                        except Exception as e:
-                            logger.error(e)
-                            traceback.print_exc()
+                        # 调用小卡处理函数
+                        stuck_handle_type, random_direct = self_handle_stuck(
+                            hero_x, hero_y, kbd_current_direction, 
+                            door_xywh_list, door_boss_xywh_list, obstacle_xywh_list,
+                            hero_xywh, img0, rows, cols, path_stack
+                        )
                         
-                        # ========== 2. 障碍物绕行 ==========
-                        if obstacle_xywh_list:
-                            nearest_obs = None
-                            min_dist = float('inf')
-                            for obs in obstacle_xywh_list:
-                                dist = ((obs[0] - hero_x) ** 2 + (obs[1] - hero_y) ** 2) ** 0.5
-                                if dist < min_dist:
-                                    min_dist = dist
-                                    nearest_obs = obs
-                            
-                            if nearest_obs and kbd_current_direction:
-                                obs_x, obs_y = nearest_obs[0], nearest_obs[1]
-                                obs_w = nearest_obs[2] if len(nearest_obs) > 2 else 60
-                                obs_h = nearest_obs[3] if len(nearest_obs) > 3 else 40
-                                stuck_handle_type = f"障碍物绕行(距离{min_dist:.0f})"
-                                
-                                if "RIGHT" in kbd_current_direction or "LEFT" in kbd_current_direction:
-                                    base_dir = "RIGHT" if "RIGHT" in kbd_current_direction else "LEFT"
-                                    dist_up = abs(hero_y - (obs_y - obs_h / 2))
-                                    dist_down = abs((obs_y + obs_h / 2) - hero_y)
-                                    
-                                    if hero_y < 350:
-                                        random_direct = f"{base_dir}_DOWN"
-                                    elif hero_y > 420:
-                                        random_direct = f"{base_dir}_UP"
-                                    elif dist_up < dist_down:
-                                        random_direct = f"{base_dir}_UP"
-                                    else:
-                                        random_direct = f"{base_dir}_DOWN"
-                                        
-                                elif "UP" in kbd_current_direction or "DOWN" in kbd_current_direction:
-                                    base_dir = "UP" if "UP" in kbd_current_direction else "DOWN"
-                                    dist_left = abs(hero_x - (obs_x - obs_w / 2))
-                                    dist_right = abs((obs_x + obs_w / 2) - hero_x)
-                                    
-                                    if hero_x < 150:
-                                        random_direct = f"RIGHT_{base_dir}"
-                                    elif hero_x > 900:
-                                        random_direct = f"LEFT_{base_dir}"
-                                    elif dist_left < dist_right:
-                                        random_direct = f"LEFT_{base_dir}"
-                                    else:
-                                        random_direct = f"RIGHT_{base_dir}"
-                        
-                        # ========== 3. 边缘强制移动 ==========
-                        elif hero_y < 400 and hero_x > 850 and (kbd_current_direction is None or "UP" in kbd_current_direction or "RIGHT" in kbd_current_direction):
-                            stuck_handle_type = "边缘强制(右上角)"
-                            mover.move(target_direction="LEFT")
-                            safe_sleep(1.2)
-                            random_direct = "LEFT"
-                        elif hero_x > img0.shape[1] * 3 // 4 and (kbd_current_direction is None or "RIGHT" in kbd_current_direction):
-                            stuck_handle_type = "边缘强制(右边)"
-                            mover.move(target_direction="LEFT")
-                            safe_sleep(1.2)
-                            random_direct = random.choice(list(filter(lambda x1: x1 != "RIGHT" and x1 != kbd_current_direction, kbu.single_direct)))
-                        elif hero_y < 400 and hero_x < 200 and (kbd_current_direction is None or "UP" in kbd_current_direction or "LEFT" in kbd_current_direction):
-                            stuck_handle_type = "边缘强制(左上角)"
-                            mover.move(target_direction="RIGHT")
-                            safe_sleep(1.2)
-                            random_direct = "RIGHT"
-                        elif hero_x < img0.shape[1] * 1 // 5 and (kbd_current_direction is None or "LEFT" in kbd_current_direction):
-                            stuck_handle_type = "边缘强制(左边)"
-                            mover.move(target_direction="RIGHT")
-                            safe_sleep(1.2)
-                            random_direct = random.choice(list(filter(lambda x1: x1 != "LEFT" and x1 != kbd_current_direction, kbu.single_direct)))
-                        
-                        # ========== 4. 站在门上的处理 ==========
-                        elif len(door_xywh_list + door_boss_xywh_list) > 0 and exist_near(hero_xywh, door_xywh_list + door_boss_xywh_list, 100):
-                            stand_on_door = exist_near(hero_xywh, door_xywh_list + door_boss_xywh_list, 100)
-                            stuck_handle_type = "站在门上"
-                            if hero_x > img0.shape[1] * 4 // 5 and stand_on_door[0] > img0.shape[1] * 4 // 5:
-                                random_direct = "LEFT"
-                            elif hero_x < img0.shape[1] * 1 // 5 and stand_on_door[0] < img0.shape[1] * 1 // 5:
-                                random_direct = "RIGHT"
-                                if hero_y < img0.shape[0] * 3 // 5:
-                                    random_direct = random.choice(['RIGHT', 'RIGHT_DOWN'])
-                            elif hero_x > img0.shape[1] * 4 // 5:
-                                random_direct = random.choice(list(filter(lambda x1: x1 != "RIGHT" and x1 != kbd_current_direction, kbu.single_direct)))
-                            elif hero_x < img0.shape[1] * 1 // 5:
-                                random_direct = random.choice(list(filter(lambda x1: x1 != "LEFT" and x1 != kbd_current_direction, kbu.single_direct)))
-                            elif hero_y > img0.shape[0] * 3 // 5:
-                                random_direct = random.choice(list(filter(lambda x1: x1 != "DOWN" and x1 != kbd_current_direction, kbu.single_direct)))
-                            else:
-                                random_direct = random.choice(list(filter(lambda x1: x1 != "UP" and x1 != kbd_current_direction, kbu.single_direct)))
-                        
-                        # ========== 5. 最终执行移动 ==========
+                        # 执行移动
                         fq.clear()
                         room_idx_list.clear()
                         stuck_room_idx = None
@@ -2116,7 +2150,6 @@ def _run_main_script():
                                         in_path = True
                                 
                                 if in_path:
-                                    logger.warning(f"执行障碍物绕行！位置({obs_x:.0f},{obs_y:.0f})，距离{dist_to_hero:.0f}，方向{target_dir}")
                                     # 根据障碍物坐标和屏幕边界选择最短绕行路径
                                     if "RIGHT" in target_dir or "LEFT" in target_dir:
                                         # 水平移动时，计算上下绕行距离
@@ -2131,19 +2164,15 @@ def _run_main_script():
                                         if hero_y < 350:
                                             # 角色在顶部，向下绕
                                             target_dir = f"{base_dir}_DOWN"
-                                            logger.debug(f"角色Y={hero_y:.0f}靠近顶部，向下绕")
                                         elif hero_y > 420:
                                             # 角色在底部，向上绕
                                             target_dir = f"{base_dir}_UP"
-                                            logger.debug(f"角色Y={hero_y:.0f}靠近底部，向上绕")
                                         elif dist_up < dist_down:
                                             # 向上绕距离更短
                                             target_dir = f"{base_dir}_UP"
-                                            logger.debug(f"向上绕更短: up={dist_up:.0f}, down={dist_down:.0f}")
                                         else:
                                             # 向下绕距离更短
                                             target_dir = f"{base_dir}_DOWN"
-                                            logger.debug(f"向下绕更短: up={dist_up:.0f}, down={dist_down:.0f}")
                                     else:
                                         # 垂直移动时，计算左右绕行距离
                                         dist_left = hero_x - (obs_x - obs_w / 2)
@@ -2153,16 +2182,14 @@ def _run_main_script():
                                         base_dir = "UP" if "UP" in target_dir else "DOWN"
                                         if hero_x < 150:
                                             target_dir = f"RIGHT_{base_dir}"
-                                            logger.debug(f"角色X={hero_x:.0f}靠近左边，向右绕")
                                         elif hero_x > 900:
                                             target_dir = f"LEFT_{base_dir}"
-                                            logger.debug(f"角色X={hero_x:.0f}靠近右边，向左绕")
                                         elif dist_left < dist_right:
                                             target_dir = f"LEFT_{base_dir}"
-                                            logger.debug(f"向左绕更短: left={dist_left:.0f}, right={dist_right:.0f}")
                                         else:
                                             target_dir = f"RIGHT_{base_dir}"
-                                            logger.debug(f"向右绕更短: left={dist_left:.0f}, right={dist_right:.0f}")
+                                    
+                                    logger.warning(f"执行障碍物绕行！位置({obs_x:.0f},{obs_y:.0f})，距离{dist_to_hero:.0f}，绕行方向{target_dir}")
                                     break
                         
                         mover.move(target_direction=target_dir)
