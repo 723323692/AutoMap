@@ -1,0 +1,14 @@
+{
+  "cards": {
+    "8S4A-8C5P-XTV8-8J4V": {
+      "card_key": "8S4A-8C5P-XTV8-8J4V",
+      "expire_date": "2026-01-22",
+      "machine_code": "09BF-70F3-A899-CAF6",
+      "bind_time": "2025-12-23 15:49:32",
+      "last_use": "2025-12-23 15:49:32",
+      "create_time": "2025-12-23 15:46:21",
+      "remark": "测试卡密",
+      "disabled": true
+    }
+  }
+}

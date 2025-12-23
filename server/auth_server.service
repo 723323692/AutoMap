@@ -1,0 +1,16 @@
+[Unit]
+Description=卡密验证服务
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/path/to/server
+Environment="AUTH_API_SECRET=BabyBus2024SecretKey"
+Environment="AUTH_ENCRYPT_KEY=BabyBusEncrypt2024"
+ExecStart=/usr/bin/gunicorn -w 2 -b 0.0.0.0:5000 auth_server:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

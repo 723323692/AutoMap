@@ -236,6 +236,27 @@ class ScriptWorker(QThread):
         timestamp = datetime.now().strftime("%H:%M:%S")
         self.log_signal.emit(f"[{timestamp}] {msg}")
     
+    def _start_auth_checker(self):
+        """启动授权检查线程"""
+        import time
+        from utils.auth import heartbeat, get_verified_card
+        
+        def check_loop():
+            while not self._stop_requested:
+                time.sleep(60)  # 每60秒检查一次
+                if self._stop_requested:
+                    break
+                card_key = get_verified_card()
+                if card_key:
+                    success, msg = heartbeat(card_key)
+                    if not success:
+                        self.log(f"[授权] 验证失败: {msg}，脚本将停止")
+                        self.request_stop()
+                        break
+        
+        checker = threading.Thread(target=check_loop, daemon=True)
+        checker.start()
+    
     def run(self):
         old_stdout, old_stderr = sys.stdout, sys.stderr
         self._redirector = StdoutRedirector()
@@ -244,6 +265,9 @@ class ScriptWorker(QThread):
         sys.stderr = self._redirector
         
         try:
+            # 启动授权检查线程
+            self._start_auth_checker()
+            
             # 先设置loguru重定向
             self._setup_loguru()
             self.log(f"开始执行 {self.script_type} 脚本...")
@@ -2428,37 +2452,7 @@ DNF_MAIL_RECEIVER={receiver}
         self.start_btn.setEnabled(False)
         self.start_btn.setText("加载中...")
         
-        # 创建进度对话框
-        self._progress_dialog = QProgressDialog("正在加载模块...", None, 0, 100, self)
-        self._progress_dialog.setWindowTitle("初始化")
-        self._progress_dialog.setWindowModality(Qt.WindowModal)
-        self._progress_dialog.setMinimumDuration(0)
-        self._progress_dialog.setCancelButton(None)  # 不允许取消
-        self._progress_dialog.setAutoClose(True)
-        self._progress_dialog.setMinimumWidth(300)
-        # 设置进度条样式，确保颜色显示
-        self._progress_dialog.setStyleSheet("""
-            QProgressDialog {
-                background-color: white;
-            }
-            QProgressBar {
-                border: 1px solid #bbb;
-                border-radius: 5px;
-                text-align: center;
-                height: 22px;
-                background-color: #e0e0e0;
-            }
-            QProgressBar::chunk {
-                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #4CAF50, stop:1 #81C784);
-                border-radius: 4px;
-            }
-        """)
-        self._progress_dialog.setValue(0)
-        self._progress_dialog.show()
-        QApplication.processEvents()  # 确保进度条立即显示
-        
-        # 创建预加载线程
+        # 创建预加载线程（进度窗口由main函数管理）
         self._preload_worker = PreloadWorker()
         self._preload_worker.progress_signal.connect(self._on_preload_progress)
         self._preload_worker.finished_signal.connect(self._on_preload_finished)
@@ -2466,16 +2460,11 @@ DNF_MAIL_RECEIVER={receiver}
     
     def _on_preload_progress(self, percent):
         """预加载进度更新"""
-        if hasattr(self, '_progress_dialog') and self._progress_dialog:
-            self._progress_dialog.setValue(percent)
-            QApplication.processEvents()  # 强制刷新UI
+        pass  # 进度由外部窗口处理
     
     def _on_preload_finished(self, success, message):
         """预加载完成回调"""
         self._preload_done = True
-        if hasattr(self, '_progress_dialog') and self._progress_dialog:
-            self._progress_dialog.setValue(100)
-            self._progress_dialog.close()
         self.log(message)
         self.start_btn.setEnabled(True)
         self.start_btn.setText("▶ 启动 (F10)")
@@ -3298,6 +3287,17 @@ def main():
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
     
+    # 登录验证
+    from utils.login_dialog import LoginDialog
+    from utils.auth import start_heartbeat_thread, is_verified
+    
+    login_dialog = LoginDialog()
+    if login_dialog.exec_() != QDialog.Accepted:
+        sys.exit(0)
+    
+    # 启动心跳检测线程（每5分钟验证一次）
+    start_heartbeat_thread(300)
+    
     # 背景图路径
     bg_path = os.path.join(PROJECT_ROOT, 'assets', 'img', 'img_gui', 'shenjie.jpg')
     bg_url = bg_path.replace('\\', '/')
@@ -3493,8 +3493,47 @@ def main():
     """
     app.setStyleSheet(style.replace('BG_PATH', bg_url))
     
+    # 创建独立的加载进度窗口
+    from PyQt5.QtWidgets import QProgressDialog
+    from PyQt5.QtCore import Qt
+    
+    progress = QProgressDialog("正在加载模块...", None, 0, 100)
+    progress.setWindowTitle("初始化")
+    progress.setWindowModality(Qt.ApplicationModal)
+    progress.setMinimumDuration(0)
+    progress.setCancelButton(None)
+    progress.setAutoClose(False)
+    progress.setMinimumWidth(300)
+    progress.setStyleSheet("""
+        QProgressDialog { background-color: white; }
+        QProgressBar {
+            border: 1px solid #bbb;
+            border-radius: 5px;
+            text-align: center;
+            height: 22px;
+            background-color: #e0e0e0;
+        }
+        QProgressBar::chunk {
+            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 #4CAF50, stop:1 #81C784);
+            border-radius: 4px;
+        }
+    """)
+    progress.setValue(0)
+    progress.show()
+    QApplication.processEvents()
+    
+    # 创建主窗口（会触发预加载）
     window = MainWindow()
-    window.show()
+    
+    # 连接预加载信号到独立进度窗口
+    if hasattr(window, '_preload_worker'):
+        window._preload_worker.progress_signal.connect(lambda p: (progress.setValue(p), QApplication.processEvents()))
+        window._preload_worker.finished_signal.connect(lambda s, m: (progress.close(), window.show()))
+    else:
+        progress.close()
+        window.show()
+    
     sys.exit(app.exec_())
 
 
