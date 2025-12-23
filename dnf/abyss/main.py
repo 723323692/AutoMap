@@ -64,7 +64,7 @@ from utils import window_utils as window_utils
 from utils.custom_thread_pool_executor import SingleTaskThreadPool
 from utils.keyboard_move_controller import MovementController
 from utils.utilities import plot_one_box
-from utils.window_utils import WindowCapture
+from utils.window_utils import WindowCapture, capture_window_image
 from utils.utilities import match_template_by_roi
 from utils.mail_sender import EmailSender
 from dnf.mail_config import config as mail_config
@@ -252,6 +252,76 @@ executor = SingleTaskThreadPool()
 img_executor = concurrent.futures.ThreadPoolExecutor(max_workers=5)
 tool_executor = concurrent.futures.ThreadPoolExecutor(max_workers=3)
 mail_sender = EmailSender(mail_config)  # 初始化邮件发送器
+
+
+def adjust_stutter_alarm(start_time, role_name, role_no, fight_count, handle):
+    """刷图异常检测和提醒（与白图一致）"""
+    count = False
+    paused_time = 0  # 记录暂停的总时间
+    last_check_time = time.time()
+    paused_logged = False  # 是否已输出暂停日志
+    
+    while not stop_be_pressed:
+        time.sleep(1)
+        
+        # 再次检查停止标志，避免在sleep期间停止后继续执行
+        if stop_be_pressed:
+            logger.debug("超时检测线程：检测到停止信号，退出")
+            return
+        
+        # 检查是否处于暂停状态
+        if not pause_event.is_set():
+            # 暂停中，累计暂停时间，不计入超时
+            paused_time += time.time() - last_check_time
+            last_check_time = time.time()
+            if not paused_logged:
+                logger.debug("超时检测线程：脚本已暂停，暂停计时")
+                paused_logged = True
+            continue
+        
+        # 恢复运行，重置暂停日志标志
+        paused_logged = False
+        
+        last_check_time = time.time()
+        # 计算实际运行时间（排除暂停时间）
+        actual_elapsed = (time.time() - start_time) - paused_time
+        
+        if actual_elapsed > 60 and not count:
+            logger.warning(f'第【{role_no}】个角色，【{role_name}】第【{fight_count}】次刷图,卡门【{actual_elapsed:.1f}】秒,尝试按键移动角色至上个门口~~~~~~')
+            # 先释放所有按键，否则游戏可能不响应
+            mover._release_all_keys()
+            time.sleep(0.3)
+            # 暂停主循环，防止按键被重新按下
+            pause_event.clear()
+            time.sleep(0.3)
+            # 再次释放确保干净
+            mover._release_all_keys()
+            time.sleep(0.2)
+            # 用pynput按键，和技能按键一样的方式
+            kbu.do_press_with_time(dnf.Key_collect_role, 300, 200)
+            logger.info(f'已按下 numpad_7 键，返回上一地图')
+            time.sleep(1)
+            # 恢复主循环
+            pause_event.set()
+            count = True
+        elif actual_elapsed > 100:
+            # 发送邮件前再次检查停止标志
+            if stop_be_pressed:
+                logger.debug("超时检测线程：检测到停止信号，跳过发送邮件")
+                return
+            # 创建邮件图片目录
+            mail_img_dir = os.path.join(os.getcwd(), "mail_imgs")
+            os.makedirs(mail_img_dir, exist_ok=True)
+            img_path = os.path.join(mail_img_dir, "alarm_abyss.png")
+            capture_window_image(handle).save(img_path)
+            email_subject = "DNF深渊助手"
+            email_content = f"""运行状态实时监控\n{datetime.now().strftime('%Y年%m月%d日 %H时%M分%S秒')}\n{'自己账号' if account_code == 1 else '五子账号'}第{role_no}个角色，{role_name}第{fight_count}次刷图,{actual_elapsed:.1f}秒内没通关地下城,请及时查看处理。"""
+            email_receiver = mail_config.get("receiver")
+            email_img = [img_path]
+            tool_executor.submit(lambda: (
+                mail_sender.send_email_with_images(email_subject, email_content, email_receiver, email_img),
+                logger.info(f"第{role_no}个角色{role_name}第{fight_count}次刷图,长时间卡门 已经发送邮件提醒了")))
+            return
 
 
 # 创建一个队列，用于主线程和展示线程之间的通信（maxsize=2避免堆积）
@@ -858,7 +928,6 @@ def _run_main_script():
         # 角色刷完结束
         finished = False
         buff_finished = False
-        exception_mail_notify_timer = None
 
         # todo 循环进图开始>>>>>>>>>>>>>>>>>>>>>>>>
         while not finished and need_fight and not stop_be_pressed:  # 循环进图，再次挑战
@@ -866,12 +935,11 @@ def _run_main_script():
             if stop_be_pressed:
                 logger.warning("检测到停止信号，退出循环...")
                 break
-                
-            if exception_mail_notify_timer:
-                exception_mail_notify_timer.cancel()
-            exception_mail_notify_timer = threading.Timer(300, mail_sender.send_email, ("刷图异常提醒", "刷图异常提醒，长时间未动，及时介入处理。", mail_config.get("receiver")))
-            exception_mail_notify_timer.start()
-            logger.debug("启动刷图异常提醒定时器")
+            
+            # 记录本次刷图开始时间
+            one_game_start = time.time()
+            # 启动异常检测线程
+            threading.Thread(target=adjust_stutter_alarm, args=(one_game_start, role.name, role_no, fight_count + 1, handle), daemon=True).start()
 
             # 先要等待地图加载
             time.sleep(1)
