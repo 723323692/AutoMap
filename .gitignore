@@ -211,6 +211,8 @@ card_generator_config.json
 
 # Server data
 server/cards.db
+server/密钥和数据库说明.txt
+server/server.log
 
 # IDE
 .vscode/

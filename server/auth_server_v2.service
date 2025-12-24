@@ -1,0 +1,16 @@
+[Unit]
+Description=卡密验证服务 V2 (多进程+AES加密)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/server
+Environment="AUTH_API_SECRET=BabyBus2024SecretKey"
+Environment="AUTH_ENCRYPT_KEY=BabyBusEncrypt2024Key!"
+ExecStart=/usr/bin/gunicorn -c gunicorn_config.py auth_server_v2:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

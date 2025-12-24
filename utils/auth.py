@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 """
-卡密验证模块 - 网络验证 + 防破解 + 加密传输版本
+卡密验证模块 - 网络验证 + 防破解 + AES加密传输版本
 """
 
 import os
@@ -22,7 +22,7 @@ LOCAL_AUTH_FILE = os.path.join(PROJECT_ROOT, '.auth_local')
 _S = lambda s: base64.b64decode(s).decode()
 _SERVER = _S('aHR0cDovLzEyMy4yMDcuODMuMTUyOjUwMDA=')  # http://123.207.83.152:5000
 _SECRET = _S('QmFieUJ1czIwMjRTZWNyZXRLZXk=')  # BabyBus2024SecretKey
-_ENCRYPT_KEY = _S('QmFieUJ1c0VuY3J5cHQyMDI0')  # BabyBusEncrypt2024
+_ENCRYPT_KEY = _S('QmFieUJ1c0VuY3J5cHQyMDI0S2V5IQ==')  # BabyBusEncrypt2024Key!
 
 AUTH_SERVER_URL = os.environ.get('AUTH_SERVER_URL', _SERVER)
 API_SECRET = os.environ.get('AUTH_API_SECRET', _SECRET)
@@ -39,8 +39,46 @@ _auth_state = {
 _auth_lock = threading.Lock()
 
 
+# ========== AES加密（更安全）==========
+def _get_aes_key():
+    """获取AES密钥（32字节）"""
+    return hashlib.sha256(ENCRYPT_KEY.encode()).digest()
+
+
+def _aes_encrypt(data):
+    """AES加密"""
+    try:
+        from Crypto.Cipher import AES
+        from Crypto.Util.Padding import pad
+        key = _get_aes_key()
+        cipher = AES.new(key, AES.MODE_CBC)
+        encrypted = cipher.iv + cipher.encrypt(pad(data.encode('utf-8'), AES.block_size))
+        return base64.b64encode(encrypted).decode('utf-8')
+    except ImportError:
+        # 降级到XOR
+        return _xor_encrypt(data, ENCRYPT_KEY)
+
+
+def _aes_decrypt(encrypted_data):
+    """AES解密"""
+    try:
+        from Crypto.Cipher import AES
+        from Crypto.Util.Padding import unpad
+        key = _get_aes_key()
+        data = base64.b64decode(encrypted_data)
+        iv = data[:16]
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        decrypted = unpad(cipher.decrypt(data[16:]), AES.block_size)
+        return decrypted.decode('utf-8')
+    except ImportError:
+        # 降级到XOR
+        return _xor_decrypt(encrypted_data, ENCRYPT_KEY)
+    except:
+        return None
+
+
 def _xor_encrypt(data, key):
-    """XOR加密/解密"""
+    """XOR加密（兼容旧版本）"""
     key_bytes = key.encode('utf-8')
     data_bytes = data.encode('utf-8')
     encrypted = bytes([data_bytes[i] ^ key_bytes[i % len(key_bytes)] for i in range(len(data_bytes))])
@@ -48,7 +86,7 @@ def _xor_encrypt(data, key):
 
 
 def _xor_decrypt(encrypted_data, key):
-    """XOR解密"""
+    """XOR解密（兼容旧版本）"""
     try:
         key_bytes = key.encode('utf-8')
         data_bytes = base64.b64decode(encrypted_data)
@@ -59,16 +97,25 @@ def _xor_decrypt(encrypted_data, key):
 
 
 def _encrypt_request_data(data):
-    """加密请求数据"""
+    """加密请求数据（优先使用AES）"""
     json_str = json.dumps(data, ensure_ascii=False)
-    encrypted = _xor_encrypt(json_str, ENCRYPT_KEY)
-    return {'encrypted': encrypted, 'v': '2'}  # v=2 表示加密版本
+    try:
+        from Crypto.Cipher import AES
+        encrypted = _aes_encrypt(json_str)
+        return {'encrypted': encrypted, 'v': '3'}  # v=3 表示AES加密
+    except ImportError:
+        encrypted = _xor_encrypt(json_str, ENCRYPT_KEY)
+        return {'encrypted': encrypted, 'v': '2'}  # v=2 表示XOR加密
 
 
 def _decrypt_response_data(response_json):
     """解密响应数据"""
     if 'encrypted' in response_json:
-        decrypted = _xor_decrypt(response_json['encrypted'], ENCRYPT_KEY)
+        version = response_json.get('v', '2')
+        if version == '3':
+            decrypted = _aes_decrypt(response_json['encrypted'])
+        else:
+            decrypted = _xor_decrypt(response_json['encrypted'], ENCRYPT_KEY)
         if decrypted:
             return json.loads(decrypted)
     return response_json  # 兼容未加密响应
