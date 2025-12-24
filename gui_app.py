@@ -298,16 +298,15 @@ class ScriptWorker(QThread):
             self.log_signal.emit(text.strip())
     
     def _setup_loguru(self):
-        """设置loguru日志重定向到GUI"""
+        """设置loguru日志重定向到GUI，同时保留文件日志"""
         try:
             from loguru import logger
-            # 移除所有现有的handler
-            logger.remove()
-            # 添加自定义sink，将日志发送到GUI
+            # 只添加GUI sink，不移除现有的文件日志handler
+            # GUI只显示INFO及以上级别，文件保存所有级别
             logger.add(
                 self._loguru_sink,
                 format="{time:HH:mm:ss} | {level} | {message}",
-                level="DEBUG",
+                level="INFO",  # GUI只显示INFO及以上
                 colorize=False,
                 backtrace=False,
                 diagnose=False

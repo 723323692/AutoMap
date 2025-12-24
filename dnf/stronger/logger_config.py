@@ -58,5 +58,5 @@ def switch_level(level):
         console_log_id = logger.add(sys.stderr, enqueue=True)
 
 
-switch_level("INFO")
+switch_level("DEBUG")
 # cleanup_old_logs(1)
