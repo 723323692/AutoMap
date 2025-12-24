@@ -226,3 +226,6 @@ dist/
 build_client.py
 build_cython.py
 build_client.bat
+
+# Encrypted model weights
+weights_encrypted/*.enc

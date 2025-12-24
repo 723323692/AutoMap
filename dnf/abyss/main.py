@@ -106,7 +106,8 @@ buy_catalyst = 7  # buy_type: 0不买，1传说，2史诗，3太初，4传说+�
 enable_uniform_pl = False
 uniform_default_fatigue_reserved = 17
 
-weights = os.path.join(config_.project_base_path, 'weights/abyss.pt')  # 模型存放的位置
+from model_loader import get_abyss_model_path
+weights = get_abyss_model_path()  # 模型存放的位置
 # <<<<<<<<<<<<<<<< 运行时相关的参数 <<<<<<<<<<<<<<<<
 
 #  >>>>>>>>>>>>>>>> 脚本所需要的变量 >>>>>>>>>>>>>>>>

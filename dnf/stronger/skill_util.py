@@ -5,6 +5,8 @@ __version__ = '1.0'
 
 from datetime import datetime
 import time
+import os
+import json
 
 import cv2
 import cv2 as cv
@@ -28,10 +30,31 @@ skill_width = 28
 
 # 技能栏按键列表（可以通过GUI修改，对应游戏内的技能栏按键）
 # 14个槽位：上排7个 + 下排7个
-ACTUAL_KEYS = [ #上排
-                "q", "w", "e", "r", "t", "ctrl_l", "", 
-                # 下排
-                "a", "s", "d", "f", "g", "h", "alt_l"]
+_DEFAULT_KEYS = ["q", "w", "e", "r", "t", "ctrl_l", "", 
+                 "a", "s", "d", "f", "g", "h", "alt_l"]
+
+def _load_actual_keys():
+    """从 JSON 配置文件加载按键，如果不存在则使用默认值"""
+    try:
+        # 获取项目根目录
+        import sys
+        if getattr(sys, 'frozen', False):
+            # 打包后
+            base_path = os.path.dirname(sys.executable)
+        else:
+            # 开发环境
+            base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        
+        config_path = os.path.join(base_path, 'skill_bar_config.json')
+        if os.path.exists(config_path):
+            with open(config_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get('ACTUAL_KEYS', _DEFAULT_KEYS)
+    except Exception:
+        pass
+    return _DEFAULT_KEYS
+
+ACTUAL_KEYS = _load_actual_keys()
 
 def _get_actual_keys():
     """动态获取实际按键列表"""

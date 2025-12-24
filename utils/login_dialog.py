@@ -190,7 +190,7 @@ class LoginDialog(QDialog):
         self.status_label.setWordWrap(True)
         layout.addWidget(self.status_label)
 
-    def do_login(self):
+    def do_login(self, _=None):
         """执行登录"""
         card_key = self.card_input.text().strip()
         
@@ -252,7 +252,7 @@ class LoginDialog(QDialog):
             self.status_label.setStyleSheet("color: #c62828; font-size: 12px;")
             self.login_btn.setEnabled(True)
     
-    def do_unbind(self):
+    def do_unbind(self, _=None):
         """解绑当前设备"""
         card_key = self.card_input.text().strip()
         
