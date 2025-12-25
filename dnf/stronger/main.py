@@ -2043,22 +2043,22 @@ def _run_main_script():
                             # todo 除歼灭不存在 跳过材料时无卡住的逻辑
                             logger.debug("等三秒直接跳过材料")
                             time.sleep(1)
-                            # 可能没过去，随便走两步，(todo 根据角色位置，决定往哪里走)
+                            # 可能没过去，继续朝目标方向走两步
                             if next_room_direction == 'RIGHT':
-                                logger.debug("先向左走两步")
-                                mover.move(target_direction="LEFT")
-                                time.sleep(0.5)
-                            if next_room_direction == 'LEFT':
-                                logger.debug("先向右走两步")
+                                logger.debug("继续向右走两步")
                                 mover.move(target_direction="RIGHT")
                                 time.sleep(0.5)
+                            if next_room_direction == 'LEFT':
+                                logger.debug("继续向左走两步")
+                                mover.move(target_direction="LEFT")
+                                time.sleep(0.5)
                             if next_room_direction == 'UP':
-                                logger.debug("先向下走两步")
-                                mover.move(target_direction="DOWN")
+                                logger.debug("继续向上走两步")
+                                mover.move(target_direction="UP")
                                 time.sleep(0.5)
                             if next_room_direction == 'DOWN':
-                                logger.debug("先向上走两步")
-                                mover.move(target_direction="UP")
+                                logger.debug("继续向下走两步")
+                                mover.move(target_direction="DOWN")
                                 time.sleep(0.5)
                             # stuck_room_idx = None
                             # room_idx_list.clear()
