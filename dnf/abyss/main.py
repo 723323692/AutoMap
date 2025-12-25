@@ -262,11 +262,11 @@ def adjust_stutter_alarm(start_time, role_name, role_no, fight_count, handle):
     last_check_time = time.time()
     paused_logged = False  # 是否已输出暂停日志
     
-    while not stop_be_pressed:
+    while not stop_signal[0] and not stop_be_pressed:
         time.sleep(1)
         
         # 再次检查停止标志，避免在sleep期间停止后继续执行
-        if stop_be_pressed:
+        if stop_be_pressed or stop_signal[0]:
             logger.debug("超时检测线程：检测到停止信号，退出")
             return
         
@@ -307,7 +307,7 @@ def adjust_stutter_alarm(start_time, role_name, role_no, fight_count, handle):
             count = True
         elif actual_elapsed > 100:
             # 发送邮件前再次检查停止标志
-            if stop_be_pressed:
+            if stop_be_pressed or stop_signal[0]:
                 logger.debug("超时检测线程：检测到停止信号，跳过发送邮件")
                 return
             # 创建邮件图片目录
@@ -937,6 +937,9 @@ def _run_main_script():
                 logger.warning("检测到停止信号，退出循环...")
                 break
             
+            # 重置超时检测标志，停止上一次的超时检测线程
+            stop_signal[0] = False
+            
             # 记录本次刷图开始时间
             one_game_start = time.time()
             # 启动异常检测线程
@@ -1077,7 +1080,7 @@ def _run_main_script():
                     aolakou = detect_aolakou(results[0].orig_img)
 
                 if ball_xywh_list:
-                    logger.debug(f"出现球了")
+                    logger.info(f"发现球了")
                     ball_appeared = True
                 if hole_xywh_list:
                     logger.info(f"出现大坑了")
@@ -1429,22 +1432,22 @@ def _run_main_script():
                         time.sleep(0.1)
                         kbu.do_press(Key.left)
                         time.sleep(0.1)
-                        kbu.do_press_with_time('x', 5000 if hole_appeared else 5000, 50),
+                        kbu.do_press_with_time('x', 3000 if hole_appeared else 3000, 50),
                         logger.warning("预先长按x 按完x了")
 
                         continue
-                    elif collect_loot_pressed and time.time() - collect_loot_pressed_time < 10:
+                    elif collect_loot_pressed and time.time() - collect_loot_pressed_time < 5:
                         tt = time.time()
                         if 0.1 < tt - int(tt) < 0.2:  # 0.6 < tt - int(tt) < 0.75:
-                            logger.info(f"已经预先按下移动物品了，10s内忽略拾取...{int(10 - (time.time() - collect_loot_pressed_time))}")
+                            logger.info(f"已经预先按下移动物品了，5s内忽略拾取...{int(5 - (time.time() - collect_loot_pressed_time))}")
                         continue
-                    elif collect_loot_pressed and time.time() - collect_loot_pressed_time >= 10:
-                        # 10秒后如果还有掉落物，继续按x捡
+                    elif collect_loot_pressed and time.time() - collect_loot_pressed_time >= 5:
+                        # 5秒后如果还有掉落物，继续按x捡
                         if loot_xywh_list or gold_xywh_list:
-                            logger.warning(f"10秒后仍有掉落物，继续按x捡取")
+                            logger.warning(f"5秒后仍有掉落物，继续按x捡取")
                             mover._release_all_keys()
                             time.sleep(0.1)
-                            kbu.do_press_with_time('x', 3000, 50)
+                            kbu.do_press_with_time('x', 2000, 50)
                             collect_loot_pressed_time = time.time()  # 重置时间
                             continue
                         # 掉落物在范围内,直接拾取
@@ -1559,6 +1562,8 @@ def _run_main_script():
                             time.sleep(0.1)
                             continue
 
+                        # 停止超时检测线程
+                        stop_signal[0] = True
                         break  # 终止掉当前刷一次图的循环
 
                     # 聚集物品,按x
