@@ -277,7 +277,8 @@ def search_available_skill_from_list(skills, img0):
         elif isinstance(s, Skill):
             if s.cd:
                 t = time.time()
-                if t - s.cd > s.recent_use_time + 0.1:
+                # 修复：当前时间 - 上次使用时间 > CD时间
+                if t - s.recent_use_time > s.cd + 0.1:
                     logger.debug(f"Skill:【{s.name}】 已恢复cd(计算)")
                     # s.recent_use_time = t  # 更新最近使用时间
                     return s
@@ -309,7 +310,8 @@ def get_available_skill_from_list_by_match(skills, img0, skill_images):
         elif isinstance(s, Skill):
             if s.cd:
                 t = time.time()
-                if t - s.cd > s.recent_use_time + 0.1:
+                # 修复：当前时间 - 上次使用时间 > CD时间
+                if t - s.recent_use_time > s.cd + 0.1:
                     logger.debug(f"Skill:【{s.name}】 已恢复cd(计算)")
                     # s.recent_use_time = t  # 更新最近使用时间
                     return s
