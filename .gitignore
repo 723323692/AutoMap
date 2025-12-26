@@ -211,6 +211,8 @@ card_generator_config.json
 
 # Server data
 server/cards.db
+server/密钥和数据库说明.txt
+server/server.log
 
 # IDE
 .vscode/
@@ -226,3 +228,10 @@ dist/
 build_client.py
 build_cython.py
 build_client.bat
+build_hybrid.py
+
+# Encrypted model weights
+weights_encrypted/*.enc
+
+# Workspace directory (local work files)
+workspace/
