@@ -141,8 +141,7 @@ enable_uniform_pl = False
 uniform_default_fatigue_reserved = 180
 # uniform_default_fatigue_reserved = /0
 
-from model_loader import get_stronger_model_path
-weights = get_stronger_model_path()  # 模型存放的位置
+weights = "weights/stronger.pt"  # 模型存放的位置
 # <<<<<<<<<<<<<<<< 运行时相关的参数 <<<<<<<<<<<<<<<<
 
 #  >>>>>>>>>>>>>>>> 脚本所需要的变量 >>>>>>>>>>>>>>>>
@@ -199,8 +198,7 @@ color_purple = (255, 0, 255)  # 紫色
 model = None
 model_obstacle = None  # 障碍物检测模型
 device = None
-from model_loader import get_obstacle_model_path
-weights_obstacle = get_obstacle_model_path()
+weights_obstacle = "weights/obstacle.pt"
 
 def _select_best_gpu():
     """选择最佳GPU设备，优先选择独立显卡"""
