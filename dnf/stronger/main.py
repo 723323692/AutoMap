@@ -141,7 +141,8 @@ enable_uniform_pl = False
 uniform_default_fatigue_reserved = 180
 # uniform_default_fatigue_reserved = /0
 
-weights = os.path.join(config_.project_base_path, 'weights/stronger.pt')  # 模型存放的位置
+from model_loader import get_stronger_model_path
+weights = get_stronger_model_path()  # 模型存放的位置
 # <<<<<<<<<<<<<<<< 运行时相关的参数 <<<<<<<<<<<<<<<<
 
 #  >>>>>>>>>>>>>>>> 脚本所需要的变量 >>>>>>>>>>>>>>>>
@@ -198,7 +199,8 @@ color_purple = (255, 0, 255)  # 紫色
 model = None
 model_obstacle = None  # 障碍物检测模型
 device = None
-weights_obstacle = os.path.join(config_.project_base_path, 'weights', 'obstacle.pt')
+from model_loader import get_obstacle_model_path
+weights_obstacle = get_obstacle_model_path()
 
 def _select_best_gpu():
     """选择最佳GPU设备，优先选择独立显卡"""
@@ -687,7 +689,7 @@ def start_keyboard_listener():
 
 
 def self_handle_stuck(hero_x, hero_y, kbd_current_direction, door_xywh_list, door_boss_xywh_list, 
-                      obstacle_xywh_list, hero_xywh, img0, rows, cols, path_stack):
+                      obstacle_xywh_list, hero_xywh, img0, rows, cols, path_stack, next_room_direction=None):
     """
     小卡处理函数 - 角色卡住时的绕行逻辑
     
@@ -710,6 +712,16 @@ def self_handle_stuck(hero_x, hero_y, kbd_current_direction, door_xywh_list, doo
     
     if hero_y < 420 and hero_x > 750:
         return "上小卡处理-右上角", random.choice(["LEFT", "LEFT_DOWN", "DOWN"])
+    
+    # ========== 1.5 目标方向为UP时的特殊处理 ==========
+    # 当目标是UP且角色在上方时，优先向右移动寻找门（大多数上方门在右侧）
+    if next_room_direction == 'UP' and hero_y < 450:
+        if hero_x < 700:
+            # 角色不在最右边，继续向右移动找门
+            return "上方寻门-向右", "RIGHT"
+        else:
+            # 角色已经在右边了，可能门在左边，向左移动
+            return "上方寻门-向左", "LEFT"
     
     # ========== 2. 小地图分析 ==========
     previous = None
@@ -735,8 +747,8 @@ def self_handle_stuck(hero_x, hero_y, kbd_current_direction, door_xywh_list, doo
                 random_direct = random.choice(list(filter(
                     lambda x1: x1 != get_opposite_direction(previous) and x1 != kbd_current_direction, kbu.single_direct)))
             
-            # 通用上方卡住处理
-            if hero_y < 420 and kbd_current_direction and "UP" in kbd_current_direction:
+            # 通用上方卡住处理 - 只在没有明确目标方向时使用
+            if next_room_direction is None and hero_y < 420 and kbd_current_direction and "UP" in kbd_current_direction:
                 if hero_x < 500:
                     return "上小卡处理-左侧", random.choice(["RIGHT", "RIGHT_DOWN"])
                 else:
@@ -1003,41 +1015,41 @@ def judge_is_target_door(current_room, door_box, hero_box, next_room_direction, 
                     previous = path_stack[ii - 1][1]
                     break
 
-        # last_room = get_last_room_info(current_room, path_history)
-        # previous = None if not last_room else last_room.direction
+        # 首先排除入口门：如果检测到的门在入口方向，直接返回False
+        # previous 表示进入当前房间的方向，入口门在 previous 的反方向
+        if previous == 'RIGHT' and door_box[0] > img0.shape[1] * 5 // 6:
+            # 从右边进来的，入口门在右边，当前门在右边，是入口门
+            logger.debug("判断是否是目标门，门在右边是入口门，否")
+            return False
+        if previous == 'LEFT' and door_box[0] < img0.shape[1] // 6:
+            # 从左边进来的，入口门在左边，当前门在左边，是入口门
+            logger.debug("判断是否是目标门，门在左边是入口门，否")
+            return False
+        if previous == 'UP' and door_box[1] < img0.shape[0] * 0.5:
+            # 从上边进来的，入口门在上边，当前门在上边，是入口门
+            logger.debug("判断是否是目标门，门在上边是入口门，否")
+            return False
+        if previous == 'DOWN' and door_box[1] > img0.shape[0] * 0.7:
+            # 从下边进来的，入口门在下边，当前门在下边，是入口门
+            logger.debug("判断是否是目标门，门在下边是入口门，否")
+            return False
 
-        if len(allow_directions) == 2 and previous == 'RIGHT' and door_box[0] > img0.shape[1] * 3 // 4 and door_box[0] - \
-                hero_box[0] > 170:
-            logger.debug("判断是否是目标门，2门入口门在左，可能处于右，是")
-            return True
-        if len(allow_directions) == 2 and previous == 'LEFT' and door_box[0] < img0.shape[1] // 4 and hero_box[0] - \
-                door_box[0] > 170:
-            logger.debug("判断是否是目标门，2门入口门在右，可能处于左，是")
-            return True
-
+        # 然后判断是否是目标门
         if next_room_direction == 'RIGHT' and door_box[0] > img0.shape[1] * 3 // 4:
             logger.debug("判断是否是目标门，目标右，处于右，是")
             return True
         elif next_room_direction == 'LEFT' and door_box[0] < img0.shape[1] // 5:
             logger.debug("判断是否是目标门，目标左，处于左，是")
             return True
-        else:
-            # if previous == "RIGHT" and door_box[0] < img0.shape[1] // 6:
-            if previous == "RIGHT" and door_box[0] < img0.shape[1] * 7 // 50:
-                logger.debug("判断是否是目标门，太靠左了贴着入口，否")
-                return False
-            elif previous == "LEFT" and door_box[0] > img0.shape[1] * 5 // 6:
-                logger.debug("判断是否是目标门，太靠右了贴着入口，否")
-                return False
-            else:
-                if next_room_direction == 'DOWN' and door_box[1] > img0.shape[0] * 775 // 1000 and (
-                        img0.shape[1] // 7 < door_box[0] < img0.shape[1] * 6 // 7):
-                    logger.debug("判断是否是目标门，目标下，可能是")
-                    return True
-                if next_room_direction == 'UP' and door_box[1] < img0.shape[0] * 0.72 and (
-                        img0.shape[1] // 7 < door_box[0] < img0.shape[1] * 6 // 7):
-                    logger.debug("判断是否是目标门，目标上，可能是")
-                    return True
+        elif next_room_direction == 'DOWN' and door_box[1] > img0.shape[0] * 775 // 1000 and (
+                img0.shape[1] // 7 < door_box[0] < img0.shape[1] * 6 // 7):
+            logger.debug("判断是否是目标门，目标下，可能是")
+            return True
+        elif next_room_direction == 'UP' and door_box[1] < img0.shape[0] * 0.72 and (
+                img0.shape[1] // 7 < door_box[0] < img0.shape[1] * 6 // 7):
+            logger.debug("判断是否是目标门，目标上，可能是")
+            return True
+            
     logger.warning("判断是否是目标门，无法判断，否")
     return False
 
@@ -1549,6 +1561,7 @@ def _run_main_script():
             hero_stuck_pos = {}  # 卡住的位置 ((r,c),[(x,y),(x,y)])
             die_time = 0
             in_boss_room = False
+            next_room_direction = None  # 下一个房间的方向，用于小卡处理
 
             frame_time = time.time()
             frame_interval = 1.0 / max_fps if max_fps else 0
@@ -1749,7 +1762,7 @@ def _run_main_script():
                         stuck_handle_type, random_direct = self_handle_stuck(
                             hero_x, hero_y, kbd_current_direction, 
                             door_xywh_list, door_boss_xywh_list, obstacle_xywh_list,
-                            hero_xywh, img0, rows, cols, path_stack
+                            hero_xywh, img0, rows, cols, path_stack, next_room_direction
                         )
                         
                         # 执行移动
@@ -2024,9 +2037,57 @@ def _run_main_script():
                         if next_room_direction == 'UP' and (not door_box or door_box[1] > img0.shape[0] * 0.72 or (
                                 door_box and (
                                 door_box[0] < img0.shape[1] // 7 or door_box[0] > img0.shape[1] * 6 // 7))):
-                            logger.debug("目标房间在上边---->上侧二分之一还没有门出现,继续往上")
-                            mover.move(target_direction="UP")
+                            # 上方的门可能在左上或右上，根据角色位置决定移动方向
+                            hero_x = hero_xywh[0]
+                            hero_y = hero_xywh[1]
+                            screen_center_x = img0.shape[1] // 2
+                            # 如果角色已经在上方（Y < 420），说明可能需要左右移动找门
+                            if hero_y < 420:
+                                # 角色在上方，门可能在左右两侧，需要横向移动
+                                if hero_x < screen_center_x * 0.8:
+                                    # 角色偏左，向右移动找门
+                                    logger.debug("目标房间在上边，角色在上方偏左，往右移动寻找门")
+                                    mover.move(target_direction="RIGHT")
+                                elif hero_x > screen_center_x * 1.2:
+                                    # 角色偏右，向左移动找门
+                                    logger.debug("目标房间在上边，角色在上方偏右，往左移动寻找门")
+                                    mover.move(target_direction="LEFT")
+                                else:
+                                    # 角色在中间，交替向右上移动
+                                    logger.debug("目标房间在上边，角色在上方中间，往右上方移动寻找门")
+                                    mover.move(target_direction="RIGHT_UP")
+                            else:
+                                # 角色不在上方，先向上移动
+                                if hero_x < screen_center_x * 0.6:
+                                    logger.debug("目标房间在上边，角色偏左，往右上方移动寻找门")
+                                    mover.move(target_direction="RIGHT_UP")
+                                elif hero_x > screen_center_x * 1.4:
+                                    logger.debug("目标房间在上边，角色偏右，往左上方移动寻找门")
+                                    mover.move(target_direction="LEFT_UP")
+                                else:
+                                    logger.debug("目标房间在上边---->上侧还没有门出现,继续往上")
+                                    mover.move(target_direction="UP")
                             continue
+                        
+                        # 如果以上条件都不满足，说明检测到的门不是目标门
+                        # 根据角色位置和目标方向，选择斜向移动来扩大搜索范围
+                        hero_x = hero_xywh[0]
+                        screen_center_x = img0.shape[1] // 2
+                        if next_room_direction == 'UP':
+                            if hero_x < screen_center_x:
+                                search_dir = "RIGHT_UP"
+                            else:
+                                search_dir = "LEFT_UP"
+                        elif next_room_direction == 'DOWN':
+                            if hero_x < screen_center_x:
+                                search_dir = "RIGHT_DOWN"
+                            else:
+                                search_dir = "LEFT_DOWN"
+                        else:
+                            search_dir = next_room_direction
+                        logger.warning(f"检测到的门不是目标门，斜向移动{search_dir}扩大搜索范围")
+                        mover.move(target_direction=search_dir)
+                        continue
 
                     # 门在命中范围内,等待过图即可
                     if door_in_range:
