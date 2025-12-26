@@ -326,7 +326,7 @@ class ScriptWorker(QThread):
     
     def _run_stronger(self):
         self.log("启动妖气追踪/白图脚本...")
-        self.log(f"配置参数: 模式={self.config['game_mode']}, 账号={self.config['account_code']}, 起始角色={self.config['first_role']}, 结束角色={self.config['last_role']}")
+        self.log(f"配置参数: 模式={self.config['game_mode']}, 账号={self.config.get('account_name', self.config['account_code'])}, 起始角色={self.config['first_role']}, 结束角色={self.config['last_role']}")
         
         stronger_dir = os.path.join(PROJECT_ROOT, 'dnf', 'stronger')
         original_dir = os.getcwd()
@@ -347,7 +347,11 @@ class ScriptWorker(QThread):
             stronger_main.stop_be_pressed = False
             stronger_main.use_json_config = True  # GUI模式使用JSON配置
             stronger_main.game_mode = self.config['game_mode']
-            stronger_main.account_code = self.config['account_code']
+            # account_code: 'account1' -> 1, 'account2' -> 2
+            account_str = self.config['account_code']
+            stronger_main.account_code = int(account_str.replace('account', '')) if isinstance(account_str, str) else account_str
+            # 传递账号显示名称
+            stronger_main.account_name = self.config.get('account_name', '')
             stronger_main.first_role_no = self.config['first_role']
             stronger_main.last_role_no = self.config['last_role']
             # 跳过角色设置
@@ -399,8 +403,11 @@ class ScriptWorker(QThread):
             import dnf.abyss.main as abyss_main
             # 重置停止标志
             abyss_main.stop_be_pressed = False
-            # 设置账号类型
-            abyss_main.account_code = self.config.get('account_code', 1)
+            # 设置账号类型: 'account1' -> 1, 'account2' -> 2
+            account_str = self.config.get('account_code', 'account1')
+            abyss_main.account_code = int(account_str.replace('account', '')) if isinstance(account_str, str) else account_str
+            # 传递账号显示名称
+            abyss_main.account_name = self.config.get('account_name', '')
             abyss_main.first_role_no = self.config['first_role']
             abyss_main.last_role_no = self.config['last_role']
             abyss_main.show = self.config['show_detection']
@@ -3090,6 +3097,7 @@ DNF_MAIL_RECEIVER={receiver}
             config = {
                 'game_mode': self.mode_group.checkedId(),
                 'account_code': self.stronger_account_combo.currentData() or 'account1',
+                'account_name': self.stronger_account_combo.currentText(),
                 'first_role': self.first_role.value(),
                 'last_role': self.last_role.value(),
                 'show_detection': self.show_detection.isChecked(),
@@ -3118,6 +3126,7 @@ DNF_MAIL_RECEIVER={receiver}
             
             config = {
                 'account_code': self.abyss_account_combo.currentData() or 'account1',
+                'account_name': self.abyss_account_combo.currentText(),
                 'first_role': self.abyss_first.value(),
                 'last_role': self.abyss_last.value(),
                 'show_detection': self.show_detection.isChecked(),
@@ -3283,9 +3292,57 @@ DNF_MAIL_RECEIVER={receiver}
         event.accept()
 
 
+def check_single_instance():
+    """检测程序是否已经在运行（使用互斥锁）"""
+    import ctypes
+    
+    kernel32 = ctypes.windll.kernel32
+    mutex_name = "DNF_AutoScript_Mutex_723323692"
+    
+    # 尝试创建互斥锁
+    mutex = kernel32.CreateMutexW(None, True, mutex_name)
+    last_error = kernel32.GetLastError()
+    
+    # ERROR_ALREADY_EXISTS = 183
+    if last_error == 183:
+        kernel32.CloseHandle(mutex)
+        return False, "程序已经在运行中，请勿重复启动！"
+    
+    return True, mutex
+
+
+def check_dnf_running():
+    """检测DNF游戏是否已启动"""
+    try:
+        from utils.window_utils import get_window_handle
+        from dnf import window_title
+        get_window_handle(window_title)
+        return True, window_title
+    except Exception:
+        return False, None
+
+
 def main():
+    # 先检测程序是否重复运行（在创建QApplication之前）
+    is_single, result = check_single_instance()
+    if not is_single:
+        # 需要先创建QApplication才能显示消息框
+        temp_app = QApplication(sys.argv)
+        QMessageBox.warning(None, "警告", result)
+        sys.exit(1)
+    mutex = result  # 保存互斥锁，程序退出时自动释放
+    
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
+    
+    # 检测DNF游戏是否启动
+    dnf_running, dnf_title = check_dnf_running()
+    if not dnf_running:
+        QMessageBox.warning(
+            None, "提示", 
+            "未检测到DNF游戏窗口！\n\n请先启动游戏，再运行本程序。"
+        )
+        sys.exit(0)
     
     # 设置窗口图标（任务栏图标）
     icon_path = os.path.join(PROJECT_ROOT, 'assets', 'img', 'img_gui', 'favicon.ico')
