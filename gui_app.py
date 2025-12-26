@@ -1191,7 +1191,9 @@ class MainWindow(QMainWindow):
         self.last_role = NoScrollSpinBox()
         self.last_role.setFixedWidth(spin_w)
         self.last_role.setRange(1, 50)
-        self.last_role.setValue(40)
+        # 从角色配置获取默认账号的角色数量，没有则默认1
+        default_role_count = len(self.role_config.get('account1', [])) or 1
+        self.last_role.setValue(default_role_count)
         range_layout.addWidget(self.last_role)
         range_layout.addStretch()
         role_layout.addLayout(range_layout)
@@ -1326,7 +1328,9 @@ class MainWindow(QMainWindow):
         self.abyss_last = NoScrollSpinBox()
         self.abyss_last.setFixedWidth(spin_w)
         self.abyss_last.setRange(1, 50)
-        self.abyss_last.setValue(16)
+        # 从角色配置获取默认账号的角色数量，没有则默认1
+        default_role_count = len(self.role_config.get('account1', [])) or 1
+        self.abyss_last.setValue(default_role_count)
         range_layout.addWidget(self.abyss_last)
         range_layout.addStretch()
         role_layout.addLayout(range_layout)
@@ -2629,7 +2633,6 @@ DNF_MAIL_RECEIVER={receiver}
             return
         try:
             c = self.gui_config
-            self.log(f"正在加载配置: 起始角色={c.get('first_role')}, 结束角色={c.get('last_role')}")
             
             # 妖气追踪/白图配置
             if 'game_mode' in c:
@@ -2704,6 +2707,8 @@ DNF_MAIL_RECEIVER={receiver}
             # 不再恢复选项卡，每次打开默认显示第一个选项卡
             # if 'current_tab' in c:
             #     self.tabs.setCurrentIndex(c['current_tab'])
+            # 日志显示界面实际值（配置应用后）
+            self.log(f"正在加载配置: 起始角色={self.first_role.value()}, 结束角色={self.last_role.value()}")
             self.log("已加载上次配置")
         except Exception as e:
             self.log(f"加载配置失败: {e}")
