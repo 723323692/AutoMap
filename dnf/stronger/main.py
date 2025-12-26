@@ -69,6 +69,7 @@ from dnf.stronger.player import (
 )
 from logger_config import logger
 from utils import keyboard_utils as kbu
+from utils.auth import runtime_check as _rc, silent_verify as _sv
 
 
 def get_role_config_list(account_code, use_json=True):
@@ -1248,6 +1249,11 @@ def main_script():
 def _run_main_script():
     global x, y, handle, show, game_mode, stop_signal, stop_be_pressed, display_thread
     
+    # 运行时验证
+    if not _rc(False):
+        logger.error("授权验证失败")
+        return
+    
     # 加载模型（延迟加载，首次调用时才真正加载）
     model, device = get_model()
     
@@ -1273,6 +1279,8 @@ def _run_main_script():
     for i in range(len(role_list)):
         # 检查停止标志
         check_stop()
+        # 随机验证点
+        _sv()
             
         pause_event.wait()  # 暂停
         role = role_list[i]
@@ -1591,6 +1599,7 @@ def _run_main_script():
             die_time = 0
             in_boss_room = False
             next_room_direction = None  # 下一个房间的方向，用于小卡处理
+            _vn = 0  # 验证计数器
 
             frame_time = time.time()
             frame_interval = 1.0 / max_fps if max_fps else 0
@@ -1599,6 +1608,11 @@ def _run_main_script():
                 if stop_be_pressed:
                     logger.warning("检测到停止信号，退出打怪循环...")
                     break
+                
+                # 每100帧验证一次
+                _vn += 1
+                if _vn % 100 == 0 and not _sv():
+                    time.sleep(random.uniform(30, 60))
                 
                 # 限制处理速率 - 精确等待到下一帧时间
                 if frame_interval:

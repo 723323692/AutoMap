@@ -59,6 +59,7 @@ from dnf.stronger.skill_util import get_skill_initial_images
 from logger_config import logger
 from dnf.stronger.role_config_manager import get_role_config_list_from_json as get_role_config_list
 from utils import keyboard_utils as kbu
+from utils.auth import runtime_check as _rc, silent_verify as _sv
 from utils import mouse_utils as mu
 from utils import window_utils as window_utils
 from utils.custom_thread_pool_executor import SingleTaskThreadPool
@@ -824,6 +825,11 @@ def main_script():
 def _run_main_script():
     global x, y, handle, show, stop_be_pressed
     
+    # 运行时验证
+    if not _rc(False):
+        logger.error("授权验证失败")
+        return
+    
     # 获取游戏窗口的位置，和大小
     handle = window_utils.get_window_handle(dnf.window_title)
     x, y, width, height = window_utils.get_window_rect(handle)
@@ -846,6 +852,8 @@ def _run_main_script():
     for i in range(len(role_list)):
         # 检查停止标志
         check_stop()
+        # 随机验证点
+        _sv()
             
         pause_event.wait()  # 暂停
 
@@ -1032,6 +1040,7 @@ def _run_main_script():
             boss_appeared = False
             die_time = 0
             delay_break = 0
+            _vn = 0  # 验证计数器
 
             # frame = 0
             while True:  # 循环打怪过图，过房间
@@ -1039,6 +1048,11 @@ def _run_main_script():
                 if stop_be_pressed:
                     logger.warning("检测到停止信号，退出打怪循环...")
                     break
+                
+                # 每100帧验证一次
+                _vn += 1
+                if _vn % 100 == 0 and not _sv():
+                    time.sleep(random.uniform(30, 60))
                 
                 pause_event.wait()  # 暂停
 

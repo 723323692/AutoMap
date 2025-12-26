@@ -613,13 +613,12 @@ def user_unbind():
             log_access(card_key, ip, 'unbind', 'fail', '剩余时间不足')
             return encrypt_response({'success': False, 'message': '剩余时间不足，无法解绑'})
     
-    # 更新数据库
+    # 更新数据库 - 只清除机器码，保留绑定时间
     total_deducted = (row['total_deducted_hours'] or 0) + deduct_hours
     
     if new_expire_date:
         db.execute('''UPDATE cards SET 
             machine_code = NULL, 
-            bind_time = NULL, 
             unbind_count = ?, 
             total_deducted_hours = ?,
             expire_date = ?
@@ -628,7 +627,6 @@ def user_unbind():
     else:
         db.execute('''UPDATE cards SET 
             machine_code = NULL, 
-            bind_time = NULL, 
             unbind_count = ?, 
             total_deducted_hours = ?
             WHERE card_key = ?''', 
@@ -747,7 +745,8 @@ def toggle_card(card_key):
 def unbind_card(card_key):
     card_key = card_key.upper()
     db = get_db()
-    result = db.execute('UPDATE cards SET machine_code = NULL, bind_time = NULL WHERE card_key = ?', (card_key,))
+    # 只清除机器码，保留绑定时间
+    result = db.execute('UPDATE cards SET machine_code = NULL WHERE card_key = ?', (card_key,))
     db.commit()
     
     if result.rowcount > 0:

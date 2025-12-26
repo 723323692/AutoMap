@@ -548,6 +548,72 @@ def unbind_card(card_key):
         return False, f"解绑出错: {str(e)}", None
 
 
+# ========== 随机验证点（混淆函数名）==========
+import random as _r
+import time as _t
+
+# 验证缓存
+_vc = {'t': 0, 'r': True, 'n': 0}
+
+def _x7k9m2():
+    """验证点A"""
+    with _auth_lock:
+        if not _auth_state['verified']:
+            return False
+        if _auth_state['last_check'] > _t.time() + 60:
+            return False
+    return True
+
+def _p3q8n1():
+    """验证点B"""
+    return not _check_debugger()
+
+def _w5r2j6():
+    """验证点C"""
+    return _integrity_check()
+
+def _h4t9k7():
+    """验证点D - 网络心跳"""
+    global _vc
+    now = _t.time()
+    if now - _vc['t'] < 300:
+        return _vc['r']
+    card = get_verified_card()
+    if not card:
+        _vc['r'] = False
+        return False
+    try:
+        success, _ = heartbeat(card)
+        _vc['t'] = now
+        _vc['r'] = success
+        return success
+    except:
+        return _vc['r']
+
+def _c2v8b4(silent=True):
+    """随机验证入口"""
+    global _vc
+    _vc['n'] += 1
+    if _vc['n'] % 10 != 0:
+        return _vc.get('r', True)
+    checks = [_x7k9m2, _p3q8n1, _w5r2j6]
+    result = _r.choice(checks)()
+    if _vc['n'] % 50 == 0:
+        result = result and _h4t9k7()
+    _vc['r'] = result
+    if not result and not silent:
+        raise RuntimeError("E01")
+    return result
+
+def _d9f5g0():
+    """静默验证"""
+    return True if _c2v8b4(True) else None
+
+# 导出
+runtime_check = _c2v8b4
+silent_verify = _d9f5g0
+
+
 # 模块加载时的检查
 if _check_debugger():
     print("[Auth] 警告: 检测到调试环境")
