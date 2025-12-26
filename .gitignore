@@ -232,3 +232,6 @@ build_hybrid.py
 
 # Encrypted model weights
 weights_encrypted/*.enc
+
+# Workspace directory (local work files)
+workspace/
