@@ -107,7 +107,8 @@ buy_catalyst = 7  # buy_type: 0不买，1传说，2史诗，3太初，4传说+�
 enable_uniform_pl = False
 uniform_default_fatigue_reserved = 17
 
-weights = os.path.join(config_.project_base_path, 'weights/abyss.pt')  # 模型存放的位置
+from model_loader import get_abyss_model_path
+weights = get_abyss_model_path()  # 模型存放的位置
 # <<<<<<<<<<<<<<<< 运行时相关的参数 <<<<<<<<<<<<<<<<
 
 #  >>>>>>>>>>>>>>>> 脚本所需要的变量 >>>>>>>>>>>>>>>>
@@ -213,6 +214,25 @@ def get_model():
         model.predict(source=dummy_img, device=device, verbose=False)
         logger.info(f"模型加载完成，使用设备: {device} ({device_name})，耗时: {_time.time()-t0:.1f}秒")
     return model, device
+
+
+def _release_models():
+    """释放模型显存，防止内存泄漏"""
+    global model, device
+    import gc
+    
+    if model is not None:
+        del model
+        model = None
+    
+    # 清理GPU缓存
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    
+    gc.collect()
+    logger.debug("模型显存已释放")
+
+
 names = [
     'boss',
     'card',
@@ -796,6 +816,9 @@ def main_script():
         # 停止展示线程
         if show:
             stop_display_thread()
+        
+        # 释放模型显存，防止内存泄漏
+        _release_models()
 
 
 def _run_main_script():
@@ -1689,8 +1712,6 @@ def _run_main_script():
 
         time_diff = datetime.now() - oen_role_start_time
         logger.warning(f'第【{i + 1}】个角色【{role.name}】刷图打怪循环结束...总计耗时: {(time_diff.total_seconds() / 60):.1f} 分钟')
-        if exception_mail_notify_timer:
-            exception_mail_notify_timer.cancel()
         # 刷图流程结束<<<<<<<<<<
         # # 展示掉右下角的图标
         # show_right_bottom_icon(capturer.capture(), x, y)

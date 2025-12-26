@@ -142,7 +142,8 @@ enable_uniform_pl = False
 uniform_default_fatigue_reserved = 180
 # uniform_default_fatigue_reserved = /0
 
-weights = "weights/stronger.pt"  # 模型存放的位置
+from model_loader import get_stronger_model_path
+weights = get_stronger_model_path()  # 模型存放的位置
 # <<<<<<<<<<<<<<<< 运行时相关的参数 <<<<<<<<<<<<<<<<
 
 #  >>>>>>>>>>>>>>>> 脚本所需要的变量 >>>>>>>>>>>>>>>>
@@ -199,7 +200,8 @@ color_purple = (255, 0, 255)  # 紫色
 model = None
 model_obstacle = None  # 障碍物检测模型
 device = None
-weights_obstacle = "weights/obstacle.pt"
+from model_loader import get_obstacle_model_path
+weights_obstacle = get_obstacle_model_path()
 
 def _select_best_gpu():
     """选择最佳GPU设备，优先选择独立显卡"""
@@ -258,6 +260,29 @@ def get_model():
             model_obstacle.predict(source=dummy_img, device=device, verbose=False)
         logger.info(f"模型加载完成，使用设备: {device} ({device_name})，耗时: {_time.time()-t0:.1f}秒")
     return model, device
+
+
+def _release_models():
+    """释放模型显存，防止内存泄漏"""
+    global model, model_obstacle, device
+    import gc
+    
+    if model is not None:
+        del model
+        model = None
+    
+    if model_obstacle is not None:
+        del model_obstacle
+        model_obstacle = None
+    
+    # 清理GPU缓存
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    
+    gc.collect()
+    logger.debug("模型显存已释放")
+
+
 # if device.type != 'cpu':
 #     model.half()  # to FP16
 names = [
@@ -1201,6 +1226,9 @@ def main_script():
         # 停止展示线程
         if show:
             stop_display_thread()
+        
+        # 释放模型显存，防止内存泄漏
+        _release_models()
         
         # 脚本正常执行完,不是被组合键中断的,并且配置了退出游戏
         if not stop_be_pressed and quit_game_after_finish:

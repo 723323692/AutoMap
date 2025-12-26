@@ -1,4 +1,4 @@
-﻿# -*- coding:utf-8 -*-
+# -*- coding:utf-8 -*-
 """
 DNF自动化脚本 - PyQt5 图形界面
 支持按钮和热键控制，日志输出到GUI
@@ -236,6 +236,27 @@ class ScriptWorker(QThread):
         timestamp = datetime.now().strftime("%H:%M:%S")
         self.log_signal.emit(f"[{timestamp}] {msg}")
     
+    def _start_auth_checker(self):
+        """启动授权检查线程"""
+        import time
+        from utils.auth import heartbeat, get_verified_card
+        
+        def check_loop():
+            while not self._stop_requested:
+                time.sleep(60)  # 每60秒检查一次
+                if self._stop_requested:
+                    break
+                card_key = get_verified_card()
+                if card_key:
+                    success, msg = heartbeat(card_key)
+                    if not success:
+                        self.log(f"[授权] 验证失败: {msg}，脚本将停止")
+                        self.request_stop()
+                        break
+        
+        checker = threading.Thread(target=check_loop, daemon=True)
+        checker.start()
+    
     def run(self):
         old_stdout, old_stderr = sys.stdout, sys.stderr
         self._redirector = StdoutRedirector()
@@ -244,6 +265,9 @@ class ScriptWorker(QThread):
         sys.stderr = self._redirector
         
         try:
+            # 启动授权检查线程
+            self._start_auth_checker()
+            
             # 先设置loguru重定向
             self._setup_loguru()
             self.log(f"开始执行 {self.script_type} 脚本...")
@@ -274,16 +298,15 @@ class ScriptWorker(QThread):
             self.log_signal.emit(text.strip())
     
     def _setup_loguru(self):
-        """设置loguru日志重定向到GUI"""
+        """设置loguru日志重定向到GUI，同时保留文件日志"""
         try:
             from loguru import logger
-            # 移除所有现有的handler
-            logger.remove()
-            # 添加自定义sink，将日志发送到GUI
+            # 只添加GUI sink，不移除现有的文件日志handler
+            # GUI只显示INFO及以上级别，文件保存所有级别
             logger.add(
                 self._loguru_sink,
                 format="{time:HH:mm:ss} | {level} | {message}",
-                level="DEBUG",
+                level="INFO",  # GUI只显示INFO及以上
                 colorize=False,
                 backtrace=False,
                 diagnose=False
@@ -621,7 +644,7 @@ class SkillRowWidget(QWidget):
             # 新添加的自定义技能
             self.type_combo.setCurrentIndex(4)
     
-    def _on_type_changed(self):
+    def _on_type_changed(self, _=None):
         """类型切换时显示/隐藏对应字段"""
         idx = self.type_combo.currentIndex()
         # 普通按键
@@ -885,7 +908,7 @@ class RoleEditDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
     
-    def _save_skills(self):
+    def _save_skills(self, _=None):
         """保存技能列表"""
         skills = self._get_skills()
         skill_count = len(skills)
@@ -896,7 +919,7 @@ class RoleEditDialog(QDialog):
             self.skill_status_label.setText("⚠ 没有有效的技能")
             self.skill_status_label.setStyleSheet("color: #ff9800; font-size: 11px;")
     
-    def _confirm_save(self):
+    def _confirm_save(self, _=None):
         """确认保存"""
         name = self.name_edit.text().strip()
         if not name:
@@ -923,6 +946,9 @@ class RoleEditDialog(QDialog):
     
     def _add_skill_row(self, skill_data=None):
         """添加一行技能"""
+        # clicked信号会传入布尔值，需要过滤
+        if isinstance(skill_data, bool):
+            skill_data = None
         row = SkillRowWidget(skill_data, self)
         row.deleted.connect(self._remove_skill_row)
         self.skill_rows.append(row)
@@ -956,6 +982,9 @@ class RoleEditDialog(QDialog):
     
     def _add_powerful_skill_row(self, skill_data=None):
         """添加一行高伤技能"""
+        # clicked信号会传入布尔值，需要过滤
+        if isinstance(skill_data, bool):
+            skill_data = None
         row = PowerfulSkillRowWidget(skill_data, self)
         row.deleted.connect(self._remove_powerful_skill_row)
         self.powerful_rows.append(row)
@@ -1010,7 +1039,7 @@ class MainWindow(QMainWindow):
         self.load_role_config()
         self.load_gui_config()
         self.init_ui()
-        self.load_mail_config()  # 加载邮件配置
+        self.load_mail_config()  # 加载邮件配置（日志在预加载完成后显示）
         self.apply_gui_config()  # 应用保存的配置
         self.start_hotkey_listener()
         self.init_schedule_timer()  # 初始化定时器
@@ -1728,7 +1757,7 @@ class MainWindow(QMainWindow):
         }
         return code_map.get(code_str, code_str)
     
-    def load_key_config(self):
+    def load_key_config(self, _=None):
         """从 dnf_config.py 加载按键配置"""
         try:
             config_path = os.path.join(PROJECT_ROOT, 'dnf', 'dnf_config.py')
@@ -1804,7 +1833,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.log(f"加载按键配置失败: {e}")
     
-    def save_key_config(self):
+    def save_key_config(self, _=None):
         """保存按键配置到 dnf_config.py"""
         try:
             config_path = os.path.join(PROJECT_ROOT, 'dnf', 'dnf_config.py')
@@ -1858,7 +1887,7 @@ class MainWindow(QMainWindow):
             self.log(f"保存按键配置失败: {e}")
             QMessageBox.critical(self, "错误", f"保存失败: {e}")
     
-    def reset_key_config(self):
+    def reset_key_config(self, _=None):
         """恢复默认按键配置"""
         reply = QMessageBox.question(self, "确认", "确定要恢复默认按键配置吗？",
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
@@ -2033,48 +2062,43 @@ class MainWindow(QMainWindow):
         scroll.setWidget(widget)
         return scroll
     
-    def load_skill_bar_config(self):
-        """从 skill_util.py 加载技能栏配置"""
+    def load_skill_bar_config(self, _=None):
+        """从 JSON 或 skill_util 模块加载技能栏配置"""
         try:
-            config_path = os.path.join(PROJECT_ROOT, 'dnf', 'stronger', 'skill_util.py')
-            with open(config_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+            import json
+            keys = None
             
-            import re
+            # 优先从 JSON 文件加载
+            config_path = os.path.join(PROJECT_ROOT, 'skill_bar_config.json')
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    keys = data.get('ACTUAL_KEYS', [])
             
-            # 解析 ACTUAL_KEYS 列表
-            match = re.search(r'ACTUAL_KEYS\s*=\s*\[([^\]]+)\]', content)
-            if match:
-                list_content = match.group(1)
-                # 解析列表中的每个元素
-                keys = []
-                for item in list_content.split(','):
-                    item = item.strip().strip('"').strip("'")
-                    keys.append(item)
-                
-                # 映射到输入框
-                slot_inputs = [
-                    self.skill_slot_1, self.skill_slot_2, self.skill_slot_3, self.skill_slot_4,
-                    self.skill_slot_5, self.skill_slot_6, self.skill_slot_7,
-                    self.skill_slot_8, self.skill_slot_9, self.skill_slot_10, self.skill_slot_11,
-                    self.skill_slot_12, self.skill_slot_13, self.skill_slot_14
-                ]
-                
-                for i, key in enumerate(keys):
-                    if i < len(slot_inputs):
-                        slot_inputs[i].setText(key)
+            # 如果没有 JSON 文件，从模块导入
+            if not keys:
+                from dnf.stronger.skill_util import ACTUAL_KEYS
+                keys = list(ACTUAL_KEYS)
+            
+            # 映射到输入框
+            slot_inputs = [
+                self.skill_slot_1, self.skill_slot_2, self.skill_slot_3, self.skill_slot_4,
+                self.skill_slot_5, self.skill_slot_6, self.skill_slot_7,
+                self.skill_slot_8, self.skill_slot_9, self.skill_slot_10, self.skill_slot_11,
+                self.skill_slot_12, self.skill_slot_13, self.skill_slot_14
+            ]
+            
+            for i, key in enumerate(keys):
+                if i < len(slot_inputs):
+                    slot_inputs[i].setText(key if key else "")
             
             self.log("技能栏配置已加载")
         except Exception as e:
             self.log(f"加载技能栏配置失败: {e}")
     
-    def save_skill_bar_config(self):
-        """保存技能栏配置到 skill_util.py"""
+    def save_skill_bar_config(self, _=None):
+        """保存技能栏配置到 JSON 文件"""
         try:
-            config_path = os.path.join(PROJECT_ROOT, 'dnf', 'stronger', 'skill_util.py')
-            with open(config_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
             # 获取所有槽位的值
             slots = [
                 self.skill_slot_1.text().strip(),
@@ -2093,30 +2117,15 @@ class MainWindow(QMainWindow):
                 self.skill_slot_14.text().strip(),
             ]
             
-            import re
-            
-            # 更新 ACTUAL_KEYS 列表
-            def format_key_for_list(k):
-                if not k:
-                    return '""'
-                else:
-                    return f'"{k}"'
-            
-            new_actual_keys = f'ACTUAL_KEYS = [{", ".join([format_key_for_list(s) for s in slots])}]'
-            content = re.sub(
-                r'ACTUAL_KEYS\s*=\s*\[[^\]]+\]',
-                new_actual_keys,
-                content,
-                count=1
-            )
-            
+            # 保存到 JSON 文件
+            import json
+            config_path = os.path.join(PROJECT_ROOT, 'skill_bar_config.json')
             with open(config_path, 'w', encoding='utf-8') as f:
-                f.write(content)
+                json.dump({'ACTUAL_KEYS': slots}, f, ensure_ascii=False, indent=2)
             
-            # 重新加载模块
-            import importlib
-            if 'dnf.stronger.skill_util' in sys.modules:
-                importlib.reload(sys.modules['dnf.stronger.skill_util'])
+            # 更新模块中的变量
+            import dnf.stronger.skill_util as skill_util
+            skill_util.ACTUAL_KEYS = slots
             
             self.log("技能栏配置已保存并生效")
             QMessageBox.information(self, "成功", "技能栏配置已保存并立即生效！")
@@ -2124,7 +2133,7 @@ class MainWindow(QMainWindow):
             self.log(f"保存技能栏配置失败: {e}")
             QMessageBox.critical(self, "错误", f"保存失败: {e}")
     
-    def reset_skill_bar_config(self):
+    def reset_skill_bar_config(self, _=None):
         """恢复默认技能栏配置"""
         reply = QMessageBox.question(self, "确认", "确定要恢复默认技能栏配置吗？",
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
@@ -2333,7 +2342,7 @@ class MainWindow(QMainWindow):
         scroll.setWidget(widget)
         return scroll
     
-    def test_mail(self):
+    def test_mail(self, _=None):
         """测试邮件发送"""
         sender = self.mail_sender.text().strip()
         password = self.mail_password.text().strip()
@@ -2362,7 +2371,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "错误", f"发送失败: {str(e)}")
             self.log(f"测试邮件发送失败: {e}")
     
-    def save_mail_config(self):
+    def save_mail_config(self, _=None):
         """保存邮件配置到.env文件"""
         sender = self.mail_sender.text().strip()
         password = self.mail_password.text().strip()
@@ -2414,8 +2423,22 @@ DNF_MAIL_RECEIVER={receiver}
                                     self.smtp_port.setValue(int(value))
                                 except:
                                     pass
-            except:
-                pass
+                # 检查配置是否完整
+                sender = self.mail_sender.text().strip()
+                password = self.mail_password.text().strip()
+                if sender and password:
+                    self._mail_config_msg = "邮件配置已加载"
+                else:
+                    self._mail_config_msg = "邮件配置不完整，发送功能可能无法正常工作"
+            except Exception as e:
+                self._mail_config_msg = f"加载邮件配置失败: {e}"
+        else:
+            self._mail_config_msg = "邮件配置不完整，发送功能可能无法正常工作"
+    
+    def _show_mail_config_log(self):
+        """显示邮件配置日志（在预加载完成后调用）"""
+        if hasattr(self, '_mail_config_msg'):
+            self.log(self._mail_config_msg)
     
     def start_hotkey_listener(self):
         """启动热键监听"""
@@ -2439,37 +2462,7 @@ DNF_MAIL_RECEIVER={receiver}
         self.start_btn.setEnabled(False)
         self.start_btn.setText("加载中...")
         
-        # 创建进度对话框
-        self._progress_dialog = QProgressDialog("正在加载模块...", None, 0, 100, self)
-        self._progress_dialog.setWindowTitle("初始化")
-        self._progress_dialog.setWindowModality(Qt.WindowModal)
-        self._progress_dialog.setMinimumDuration(0)
-        self._progress_dialog.setCancelButton(None)  # 不允许取消
-        self._progress_dialog.setAutoClose(True)
-        self._progress_dialog.setMinimumWidth(300)
-        # 设置进度条样式，确保颜色显示
-        self._progress_dialog.setStyleSheet("""
-            QProgressDialog {
-                background-color: white;
-            }
-            QProgressBar {
-                border: 1px solid #bbb;
-                border-radius: 5px;
-                text-align: center;
-                height: 22px;
-                background-color: #e0e0e0;
-            }
-            QProgressBar::chunk {
-                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #4CAF50, stop:1 #81C784);
-                border-radius: 4px;
-            }
-        """)
-        self._progress_dialog.setValue(0)
-        self._progress_dialog.show()
-        QApplication.processEvents()  # 确保进度条立即显示
-        
-        # 创建预加载线程
+        # 创建预加载线程（进度窗口由main函数管理）
         self._preload_worker = PreloadWorker()
         self._preload_worker.progress_signal.connect(self._on_preload_progress)
         self._preload_worker.finished_signal.connect(self._on_preload_finished)
@@ -2477,17 +2470,13 @@ DNF_MAIL_RECEIVER={receiver}
     
     def _on_preload_progress(self, percent):
         """预加载进度更新"""
-        if hasattr(self, '_progress_dialog') and self._progress_dialog:
-            self._progress_dialog.setValue(percent)
-            QApplication.processEvents()  # 强制刷新UI
+        pass  # 进度由外部窗口处理
     
     def _on_preload_finished(self, success, message):
         """预加载完成回调"""
         self._preload_done = True
-        if hasattr(self, '_progress_dialog') and self._progress_dialog:
-            self._progress_dialog.setValue(100)
-            self._progress_dialog.close()
         self.log(message)
+        self._show_mail_config_log()  # 显示邮件配置状态
         self.start_btn.setEnabled(True)
         self.start_btn.setText("▶ 启动 (F10)")
     
@@ -2519,7 +2508,7 @@ DNF_MAIL_RECEIVER={receiver}
             self.schedule_status_label.setText("定时状态: 未启用")
             self.schedule_status_label.setStyleSheet("color: #666;")
     
-    def check_schedule_time(self):
+    def check_schedule_time(self, _=None):
         """检查是否到达定时启动时间"""
         if not self.schedule_enabled.isChecked():
             return
@@ -2571,8 +2560,21 @@ DNF_MAIL_RECEIVER={receiver}
         
         self.log_text.append(f'<span style="color:{color}">[{timestamp}] {message}</span>')
         self.log_text.moveCursor(QTextCursor.End)
+        
+        # 限制日志行数，防止内存泄漏
+        self._trim_log_lines()
     
-    def clear_log(self):
+    def _trim_log_lines(self, max_lines=1000):
+        """限制日志行数，防止内存泄漏"""
+        doc = self.log_text.document()
+        if doc.blockCount() > max_lines:
+            cursor = self.log_text.textCursor()
+            cursor.movePosition(QTextCursor.Start)
+            cursor.movePosition(QTextCursor.Down, QTextCursor.KeepAnchor, doc.blockCount() - max_lines)
+            cursor.removeSelectedText()
+            self.log_text.moveCursor(QTextCursor.End)
+    
+    def clear_log(self, _=None):
         self.log_text.clear()
     
     # 角色配置管理
@@ -2776,7 +2778,7 @@ DNF_MAIL_RECEIVER={receiver}
         
         combo.blockSignals(False)
     
-    def add_account(self):
+    def add_account(self, _=None):
         """添加新账号"""
         # 弹出输入框让用户输入账号名称
         name, ok = QInputDialog.getText(self, "添加账号", "请输入账号名称:")
@@ -2812,7 +2814,7 @@ DNF_MAIL_RECEIVER={receiver}
         
         self.log(f"已添加账号: {name}")
     
-    def rename_account(self):
+    def rename_account(self, _=None):
         """重命名当前账号"""
         key = self.get_current_account_key()
         account_names = self._get_account_names()
@@ -2834,7 +2836,7 @@ DNF_MAIL_RECEIVER={receiver}
         """保存账号名称（随role_config一起保存）"""
         self.save_role_config()
     
-    def delete_account(self):
+    def delete_account(self, _=None):
         """删除当前账号"""
         if len([k for k in self.role_config.keys() if k != 'account_names']) <= 1:
             QMessageBox.warning(self, "警告", "至少需要保留一个账号")
@@ -2861,7 +2863,7 @@ DNF_MAIL_RECEIVER={receiver}
             self.refresh_role_table()
             self.log(f"已删除账号: {display_name}")
     
-    def refresh_role_table(self):
+    def refresh_role_table(self, _=None):
         """刷新角色表格"""
         key = self.get_current_account_key()
         roles = self.role_config.get(key, [])
@@ -2926,7 +2928,7 @@ DNF_MAIL_RECEIVER={receiver}
                 all_display += f" 【大招: {' | '.join(powerful_display)}】"
             self.role_table.setItem(i, 6, QTableWidgetItem(all_display))
     
-    def add_role(self):
+    def add_role(self, _=None):
         """添加角色"""
         key = self.get_current_account_key()
         # 计算默认编号：已有角色中最大编号 + 1
@@ -2940,7 +2942,7 @@ DNF_MAIL_RECEIVER={receiver}
             self.refresh_role_table()
             self.log(f"已添加角色: {role_data['name']}")
     
-    def edit_role(self):
+    def edit_role(self, _=None):
         """编辑角色"""
         row = self.role_table.currentRow()
         if row < 0:
@@ -2971,7 +2973,7 @@ DNF_MAIL_RECEIVER={receiver}
             self.refresh_role_table()
             self.log(f"已更新角色: {new_data['name']} (编号: {new_no})")
     
-    def delete_role(self):
+    def delete_role(self, _=None):
         """删除角色"""
         row = self.role_table.currentRow()
         if row < 0:
@@ -2985,7 +2987,7 @@ DNF_MAIL_RECEIVER={receiver}
             self.refresh_role_table()
             self.log(f"已删除角色: {name}")
     
-    def move_role_up(self):
+    def move_role_up(self, _=None):
         """上移角色"""
         row = self.role_table.currentRow()
         if row <= 0:
@@ -2993,7 +2995,7 @@ DNF_MAIL_RECEIVER={receiver}
         self._swap_roles(row, row - 1)
         self.role_table.selectRow(row - 1)
     
-    def move_role_down(self):
+    def move_role_down(self, _=None):
         """下移角色"""
         row = self.role_table.currentRow()
         key = self.get_current_account_key()
@@ -3018,14 +3020,14 @@ DNF_MAIL_RECEIVER={receiver}
         name = roles[row2].get('name', '')
         self.log(f"已移动角色 '{name}'（未保存）")
     
-    def save_role_changes(self):
+    def save_role_changes(self, _=None):
         """保存角色配置更改"""
         self.save_role_config()
         self.log("已保存角色配置")
     
 
     
-    def force_sync_from_code(self):
+    def force_sync_from_code(self, _=None):
         """从role_list.py强制同步角色配置到JSON（完整覆盖）"""
         reply = QMessageBox.warning(
             self, "确认强制同步", 
@@ -3060,7 +3062,7 @@ DNF_MAIL_RECEIVER={receiver}
             traceback.print_exc()
             QMessageBox.critical(self, "错误", f"强制同步失败: {str(e)}")
 
-    def start_script(self):
+    def start_script(self, _=None):
         """启动脚本"""
         # 检查worker是否真正在运行
         if self.worker and self.worker.isRunning():
@@ -3180,7 +3182,7 @@ DNF_MAIL_RECEIVER={receiver}
         self.statusBar().showMessage("运行中...")
         self.log("脚本已启动")
     
-    def stop_script(self):
+    def stop_script(self, _=None):
         """停止脚本"""
         if not self.worker or not self.worker.isRunning():
             return
@@ -3212,7 +3214,7 @@ DNF_MAIL_RECEIVER={receiver}
         
         QTimer.singleShot(3000, force_stop)
     
-    def pause_script(self):
+    def pause_script(self, _=None):
         """暂停/继续脚本"""
         if not self.worker or not self.worker.isRunning():
             return
@@ -3259,8 +3261,11 @@ DNF_MAIL_RECEIVER={receiver}
         
         self.log_text.append(f'<span style="color:{color}">{message}</span>')
         self.log_text.moveCursor(QTextCursor.End)
+        
+        # 限制日志行数，防止内存泄漏
+        self._trim_log_lines()
     
-    def on_finished(self):
+    def on_finished(self, _=None):
         """脚本结束"""
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
@@ -3279,6 +3284,11 @@ DNF_MAIL_RECEIVER={receiver}
                 sys.modules['dnf.abyss.main'].stop_be_pressed = False
         except Exception:
             pass
+        
+        # 清理 worker 引用，帮助垃圾回收
+        if self.worker:
+            self.worker.deleteLater()
+            self.worker = None
     
     def closeEvent(self, event):
         """关闭窗口"""
@@ -3289,10 +3299,18 @@ DNF_MAIL_RECEIVER={receiver}
         except Exception as e:
             self.log(f"保存配置失败: {e}")
         
+        # 停止定时器
+        if hasattr(self, 'schedule_timer') and self.schedule_timer:
+            self.schedule_timer.stop()
+        
+        # 停止热键监听
         if self.hotkey_listener:
             self.hotkey_listener.stop()
             self.hotkey_listener.wait(1000)
+            self.hotkey_listener.deleteLater()
+            self.hotkey_listener = None
         
+        # 停止脚本
         if self.worker and self.worker.isRunning():
             reply = QMessageBox.question(self, "确认", "脚本正在运行，确定要退出吗？",
                                         QMessageBox.Yes | QMessageBox.No)
@@ -3300,6 +3318,10 @@ DNF_MAIL_RECEIVER={receiver}
                 event.ignore()
                 return
             self.stop_script()
+            self.worker.wait(3000)
+            self.worker.deleteLater()
+            self.worker = None
+        
         event.accept()
 
 
@@ -3359,6 +3381,17 @@ def main():
     icon_path = os.path.join(PROJECT_ROOT, 'assets', 'img', 'img_gui', 'favicon.ico')
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
+    
+    # 登录验证
+    from utils.login_dialog import LoginDialog
+    from utils.auth import start_heartbeat_thread, is_verified
+    
+    login_dialog = LoginDialog()
+    if login_dialog.exec_() != QDialog.Accepted:
+        sys.exit(0)
+    
+    # 启动心跳检测线程（每5分钟验证一次）
+    start_heartbeat_thread(300)
     
     # 背景图路径
     bg_path = os.path.join(PROJECT_ROOT, 'assets', 'img', 'img_gui', 'shenjie.jpg')
@@ -3555,8 +3588,47 @@ def main():
     """
     app.setStyleSheet(style.replace('BG_PATH', bg_url))
     
+    # 创建独立的加载进度窗口
+    from PyQt5.QtWidgets import QProgressDialog
+    from PyQt5.QtCore import Qt
+    
+    progress = QProgressDialog("正在加载模块...", None, 0, 100)
+    progress.setWindowTitle("初始化")
+    progress.setWindowModality(Qt.ApplicationModal)
+    progress.setMinimumDuration(0)
+    progress.setCancelButton(None)
+    progress.setAutoClose(False)
+    progress.setMinimumWidth(300)
+    progress.setStyleSheet("""
+        QProgressDialog { background-color: white; }
+        QProgressBar {
+            border: 1px solid #bbb;
+            border-radius: 5px;
+            text-align: center;
+            height: 22px;
+            background-color: #e0e0e0;
+        }
+        QProgressBar::chunk {
+            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 #4CAF50, stop:1 #81C784);
+            border-radius: 4px;
+        }
+    """)
+    progress.setValue(0)
+    progress.show()
+    QApplication.processEvents()
+    
+    # 创建主窗口（会触发预加载）
     window = MainWindow()
-    window.show()
+    
+    # 连接预加载信号到独立进度窗口
+    if hasattr(window, '_preload_worker'):
+        window._preload_worker.progress_signal.connect(lambda p: (progress.setValue(p), QApplication.processEvents()))
+        window._preload_worker.finished_signal.connect(lambda s, m: (progress.close(), window.show()))
+    else:
+        progress.close()
+        window.show()
+    
     sys.exit(app.exec_())
 
 
