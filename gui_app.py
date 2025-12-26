@@ -2560,6 +2560,19 @@ DNF_MAIL_RECEIVER={receiver}
         
         self.log_text.append(f'<span style="color:{color}">[{timestamp}] {message}</span>')
         self.log_text.moveCursor(QTextCursor.End)
+        
+        # 限制日志行数，防止内存泄漏
+        self._trim_log_lines()
+    
+    def _trim_log_lines(self, max_lines=1000):
+        """限制日志行数，防止内存泄漏"""
+        doc = self.log_text.document()
+        if doc.blockCount() > max_lines:
+            cursor = self.log_text.textCursor()
+            cursor.movePosition(QTextCursor.Start)
+            cursor.movePosition(QTextCursor.Down, QTextCursor.KeepAnchor, doc.blockCount() - max_lines)
+            cursor.removeSelectedText()
+            self.log_text.moveCursor(QTextCursor.End)
     
     def clear_log(self, _=None):
         self.log_text.clear()
@@ -3248,6 +3261,9 @@ DNF_MAIL_RECEIVER={receiver}
         
         self.log_text.append(f'<span style="color:{color}">{message}</span>')
         self.log_text.moveCursor(QTextCursor.End)
+        
+        # 限制日志行数，防止内存泄漏
+        self._trim_log_lines()
     
     def on_finished(self, _=None):
         """脚本结束"""
@@ -3268,6 +3284,11 @@ DNF_MAIL_RECEIVER={receiver}
                 sys.modules['dnf.abyss.main'].stop_be_pressed = False
         except Exception:
             pass
+        
+        # 清理 worker 引用，帮助垃圾回收
+        if self.worker:
+            self.worker.deleteLater()
+            self.worker = None
     
     def closeEvent(self, event):
         """关闭窗口"""
@@ -3278,10 +3299,18 @@ DNF_MAIL_RECEIVER={receiver}
         except Exception as e:
             self.log(f"保存配置失败: {e}")
         
+        # 停止定时器
+        if hasattr(self, 'schedule_timer') and self.schedule_timer:
+            self.schedule_timer.stop()
+        
+        # 停止热键监听
         if self.hotkey_listener:
             self.hotkey_listener.stop()
             self.hotkey_listener.wait(1000)
+            self.hotkey_listener.deleteLater()
+            self.hotkey_listener = None
         
+        # 停止脚本
         if self.worker and self.worker.isRunning():
             reply = QMessageBox.question(self, "确认", "脚本正在运行，确定要退出吗？",
                                         QMessageBox.Yes | QMessageBox.No)
@@ -3289,6 +3318,10 @@ DNF_MAIL_RECEIVER={receiver}
                 event.ignore()
                 return
             self.stop_script()
+            self.worker.wait(3000)
+            self.worker.deleteLater()
+            self.worker = None
+        
         event.accept()
 
 

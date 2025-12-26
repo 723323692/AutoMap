@@ -214,6 +214,25 @@ def get_model():
         model.predict(source=dummy_img, device=device, verbose=False)
         logger.info(f"模型加载完成，使用设备: {device} ({device_name})，耗时: {_time.time()-t0:.1f}秒")
     return model, device
+
+
+def _release_models():
+    """释放模型显存，防止内存泄漏"""
+    global model, device
+    import gc
+    
+    if model is not None:
+        del model
+        model = None
+    
+    # 清理GPU缓存
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    
+    gc.collect()
+    logger.debug("模型显存已释放")
+
+
 names = [
     'boss',
     'card',
@@ -797,6 +816,9 @@ def main_script():
         # 停止展示线程
         if show:
             stop_display_thread()
+        
+        # 释放模型显存，防止内存泄漏
+        _release_models()
 
 
 def _run_main_script():
