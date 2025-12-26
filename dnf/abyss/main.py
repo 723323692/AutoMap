@@ -84,6 +84,7 @@ shutdown_pc_after_finish = False
 
 # 账号类型: 1=自己账号, 2=五子账号
 account_code = 1
+account_name = ""  # 账号显示名称（由GUI传入）
 
 # 执行脚本的第一个角色_编号
 first_role_no = 1
@@ -315,7 +316,9 @@ def adjust_stutter_alarm(start_time, role_name, role_no, fight_count, handle):
             img_path = os.path.join(mail_img_dir, "alarm_abyss.png")
             capture_window_image(handle).save(img_path)
             email_subject = "DNF深渊助手"
-            email_content = f"""运行状态实时监控\n{datetime.now().strftime('%Y年%m月%d日 %H时%M分%S秒')}\n{'自己账号' if account_code == 1 else '五子账号'}第{role_no}个角色，{role_name}第{fight_count}次刷图,{actual_elapsed:.1f}秒内没通关地下城,请及时查看处理。"""
+            # 使用账号显示名称，如果没有则使用默认名称
+            display_name = account_name if account_name else '未知账号'
+            email_content = f"""运行状态实时监控\n{datetime.now().strftime('%Y年%m月%d日 %H时%M分%S秒')}\n{display_name}第{role_no}个角色，{role_name}第{fight_count}次刷图,{actual_elapsed:.1f}秒内没通关地下城,请及时查看处理。"""
             email_receiver = mail_config.get("receiver")
             email_img = [img_path]
             tool_executor.submit(lambda: (
@@ -1742,13 +1745,15 @@ def _run_main_script():
             time.sleep(0.2)
         else:
             logger.warning("已经刷完最后一个角色了，结束脚本")
-            email_subject = f"深渊 任务执行结束 {pathlib.Path(__file__).stem.replace('main', '').strip() if 'main' in pathlib.Path(__file__).stem else ''}"
-            email_content = email_subject
+            # 使用账号显示名称，如果没有则使用默认名称
+            display_name = account_name if account_name else '未知账号'
+            email_subject = f"深渊 任务执行结束"
+            email_content = f"{display_name} {email_subject}"
             mail_receiver = mail_config.get("receiver")
             if mail_receiver:
                 tool_executor.submit(lambda: (
                     mail_sender.send_email(email_subject, email_content, mail_receiver),
-                    logger.info("任务执行结束")
+                    logger.info(f"{display_name}任务执行结束")
                 ))
             break
 

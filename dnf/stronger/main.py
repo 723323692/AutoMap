@@ -122,8 +122,9 @@ buy_bell_ticket = 0  # buy_type: 0，不买，1买粉罐子，2买传说罐子�
 buy_shanshanming = 2  # buy_type: 0，不买，1买粉罐子，2买传说罐子，3买粉+传说罐子
 # 买催化剂
 buy_catalyst = 7  # buy_type: 0不买，1传说，2史诗，3太初，4传说+史诗，5史诗+太初，6传说+太初，7全部
-# 账号编码0
+# 账号编码
 account_code = 1  # 1:执行自己账号,2:执行五子账号
+account_name = ""  # 账号显示名称（由GUI传入）
 # 执行脚本的第一个角色_编号
 first_role_no = 25
 last_role_no = 40
@@ -1157,7 +1158,9 @@ def adjust_stutter_alarm(start_time,role_name,role_no,fight_count,handle):
                 return
             capture_window_image(handle).save(os.path.join(os.getcwd(), "mail_imgs", "alarm_mali.png"))
             email_subject = "DNF妖气助手"
-            email_content = f"""运行状态实时监控\n{datetime.now().strftime('%Y年%m月%d日 %H时%M分%S秒')}\n{'自己账号' if account_code == 1 else '五子账号'}第{role_no}个角色，{role_name}第{fight_count}次刷图,{actual_elapsed:.1f}秒内没通关地下城,请及时查看处理。"""
+            # 使用账号显示名称，如果没有则使用默认名称
+            display_name = account_name if account_name else '未知账号'
+            email_content = f"""运行状态实时监控\n{datetime.now().strftime('%Y年%m月%d日 %H时%M分%S秒')}\n{display_name}第{role_no}个角色，{role_name}第{fight_count}次刷图,{actual_elapsed:.1f}秒内没通关地下城,请及时查看处理。"""
             email_receiver = mail_config.get("receiver")
             email_img = [os.path.join(os.getcwd(), "mail_imgs", "alarm_mali.png")]
             tool_executor.submit(lambda: (
@@ -2741,15 +2744,17 @@ def _run_main_script():
                 "妖怪歼灭" if game_mode == 4 else
                 "未知模式"
             )
+            # 使用账号显示名称，如果没有则使用默认名称
+            display_name = account_name if account_name else '未知账号'
             email_subject = f"{mode_name} 任务执行结束"
-            email_content = f"{'自己账号' if account_code == 1 else '五子账号'} {email_subject}"
+            email_content = f"{display_name} {email_subject}"
             mail_receiver = mail_config.get("receiver")
             capture_window_image(handle).save(os.path.join(os.getcwd(), "mail_imgs", "end_mali.png"))
             email_img = [os.path.join(os.getcwd(), "mail_imgs", "end_mali.png")]
             if mail_receiver:
                 tool_executor.submit(lambda: (
                     mail_sender.send_email_with_images(email_subject, email_content, mail_receiver,email_img),
-                    logger.info(f"{'自己账号' if account_code == 1 else '五子账号'}任务执行结束")
+                    logger.info(f"{display_name}任务执行结束")
                 ))
             break
 
