@@ -18,15 +18,53 @@ from datetime import datetime
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOCAL_AUTH_FILE = os.path.join(PROJECT_ROOT, '.auth_local')
 
-# ========== 配置（混淆处理）==========
-_S = lambda s: base64.b64decode(s).decode()
-_SERVER = _S('aHR0cDovLzEyMy4yMDcuODMuMTUyOjUwMDA=')  # http://123.207.83.152:5000
-_SECRET = _S('QmFieUJ1czIwMjRTZWNyZXRLZXk=')  # BabyBus2024SecretKey
-_ENCRYPT_KEY = _S('QmFieUJ1c0VuY3J5cHQyMDI0S2V5IQ==')  # BabyBusEncrypt2024Key!
+# ========== 配置（AES加密存储）==========
+# 固定种子（不依赖文件路径，避免打包后路径变化导致解密失败）
+_CFG_SEED = 'BabyBus2024AuthConfig'
 
-AUTH_SERVER_URL = os.environ.get('AUTH_SERVER_URL', _SERVER)
-API_SECRET = os.environ.get('AUTH_API_SECRET', _SECRET)
-ENCRYPT_KEY = os.environ.get('AUTH_ENCRYPT_KEY', _ENCRYPT_KEY)
+def _get_cfg_key():
+    """获取配置解密密钥"""
+    return hashlib.sha256(_CFG_SEED.encode()).digest()
+
+def _aes_decrypt_cfg(encrypted_b64):
+    """AES解密配置"""
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import unpad
+    key = _get_cfg_key()
+    data = base64.b64decode(encrypted_b64)
+    iv = data[:16]
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    decrypted = unpad(cipher.decrypt(data[16:]), AES.block_size)
+    return decrypted.decode('utf-8')
+
+# 加密后的配置（使用 generate_keys.py 生成）
+_CFG = {
+    's': 'OC522dpqJVr0VH30x2ep0yQVdSGaQA+qE4NmmY7JykIfQ+SKrKM1hGFZ9yoPwNh+',
+    'k': '4dukJ73Xe5m0eahnxz6h9pTMB1WbacgWGJJhDdEpyXc7wDOesKC82TAP0P8nMqiB',
+    'e': 'CFyVszblUHw+s7jjszc7bd1QTr17rOzjPHfszciEf7syUyvHimwxHeQGaufe6IjV',
+}
+
+def _load_config():
+    """加载配置"""
+    return {
+        'server': _aes_decrypt_cfg(_CFG['s']),
+        'secret': _aes_decrypt_cfg(_CFG['k']),
+        'encrypt': _aes_decrypt_cfg(_CFG['e']),
+    }
+
+# 延迟加载配置
+_config_cache = None
+def _get_config():
+    global _config_cache
+    if _config_cache is None:
+        _config_cache = _load_config()
+    return _config_cache
+
+# 实际使用时通过函数获取
+def _get_server(): return os.environ.get('AUTH_SERVER_URL') or _get_config()['server']
+def _get_secret(): return os.environ.get('AUTH_API_SECRET') or _get_config()['secret']
+def _get_encrypt_key(): return os.environ.get('AUTH_ENCRYPT_KEY') or _get_config()['encrypt']
+
 REQUEST_TIMEOUT = 10
 
 # 全局验证状态
@@ -39,86 +77,48 @@ _auth_state = {
 _auth_lock = threading.Lock()
 
 
-# ========== AES加密（更安全）==========
+# ========== AES加密 ==========
 def _get_aes_key():
     """获取AES密钥（32字节）"""
-    return hashlib.sha256(ENCRYPT_KEY.encode()).digest()
+    return hashlib.sha256(_get_encrypt_key().encode()).digest()
 
 
 def _aes_encrypt(data):
     """AES加密"""
-    try:
-        from Crypto.Cipher import AES
-        from Crypto.Util.Padding import pad
-        key = _get_aes_key()
-        cipher = AES.new(key, AES.MODE_CBC)
-        encrypted = cipher.iv + cipher.encrypt(pad(data.encode('utf-8'), AES.block_size))
-        return base64.b64encode(encrypted).decode('utf-8')
-    except ImportError:
-        # 降级到XOR
-        return _xor_encrypt(data, ENCRYPT_KEY)
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import pad
+    key = _get_aes_key()
+    cipher = AES.new(key, AES.MODE_CBC)
+    encrypted = cipher.iv + cipher.encrypt(pad(data.encode('utf-8'), AES.block_size))
+    return base64.b64encode(encrypted).decode('utf-8')
 
 
 def _aes_decrypt(encrypted_data):
     """AES解密"""
-    try:
-        from Crypto.Cipher import AES
-        from Crypto.Util.Padding import unpad
-        key = _get_aes_key()
-        data = base64.b64decode(encrypted_data)
-        iv = data[:16]
-        cipher = AES.new(key, AES.MODE_CBC, iv)
-        decrypted = unpad(cipher.decrypt(data[16:]), AES.block_size)
-        return decrypted.decode('utf-8')
-    except ImportError:
-        # 降级到XOR
-        return _xor_decrypt(encrypted_data, ENCRYPT_KEY)
-    except:
-        return None
-
-
-def _xor_encrypt(data, key):
-    """XOR加密（兼容旧版本）"""
-    key_bytes = key.encode('utf-8')
-    data_bytes = data.encode('utf-8')
-    encrypted = bytes([data_bytes[i] ^ key_bytes[i % len(key_bytes)] for i in range(len(data_bytes))])
-    return base64.b64encode(encrypted).decode('utf-8')
-
-
-def _xor_decrypt(encrypted_data, key):
-    """XOR解密（兼容旧版本）"""
-    try:
-        key_bytes = key.encode('utf-8')
-        data_bytes = base64.b64decode(encrypted_data)
-        decrypted = bytes([data_bytes[i] ^ key_bytes[i % len(key_bytes)] for i in range(len(data_bytes))])
-        return decrypted.decode('utf-8')
-    except:
-        return None
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import unpad
+    key = _get_aes_key()
+    data = base64.b64decode(encrypted_data)
+    iv = data[:16]
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    decrypted = unpad(cipher.decrypt(data[16:]), AES.block_size)
+    return decrypted.decode('utf-8')
 
 
 def _encrypt_request_data(data):
-    """加密请求数据（优先使用AES）"""
+    """加密请求数据"""
     json_str = json.dumps(data, ensure_ascii=False)
-    try:
-        from Crypto.Cipher import AES
-        encrypted = _aes_encrypt(json_str)
-        return {'encrypted': encrypted, 'v': '3'}  # v=3 表示AES加密
-    except ImportError:
-        encrypted = _xor_encrypt(json_str, ENCRYPT_KEY)
-        return {'encrypted': encrypted, 'v': '2'}  # v=2 表示XOR加密
+    encrypted = _aes_encrypt(json_str)
+    return {'encrypted': encrypted, 'v': '3'}
 
 
 def _decrypt_response_data(response_json):
     """解密响应数据"""
     if 'encrypted' in response_json:
-        version = response_json.get('v', '2')
-        if version == '3':
-            decrypted = _aes_decrypt(response_json['encrypted'])
-        else:
-            decrypted = _xor_decrypt(response_json['encrypted'], ENCRYPT_KEY)
+        decrypted = _aes_decrypt(response_json['encrypted'])
         if decrypted:
             return json.loads(decrypted)
-    return response_json  # 兼容未加密响应
+    return response_json
 
 
 def _check_debugger():
@@ -199,7 +199,7 @@ def get_machine_code():
 def _sign_request(data):
     """生成请求签名（内部使用）"""
     sorted_data = '&'.join(f"{k}={v}" for k, v in sorted(data.items()) if k != 'sign')
-    return hashlib.md5(f"{sorted_data}&secret={API_SECRET}".encode()).hexdigest()
+    return hashlib.md5(f"{sorted_data}&secret={_get_secret()}".encode()).hexdigest()
 
 
 def _encrypt_local_data(data):
@@ -327,7 +327,7 @@ def verify_card(card_key):
     
     try:
         response = requests.post(
-            f"{AUTH_SERVER_URL}/api/verify",
+            f"{_get_server()}/api/verify",
             json=encrypted_data,
             timeout=REQUEST_TIMEOUT
         )
@@ -423,7 +423,7 @@ def heartbeat(card_key=None):
     
     try:
         response = requests.post(
-            f"{AUTH_SERVER_URL}/api/heartbeat",
+            f"{_get_server()}/api/heartbeat",
             json=encrypted_data,
             timeout=REQUEST_TIMEOUT
         )
@@ -443,8 +443,8 @@ def heartbeat(card_key=None):
         return False, "心跳检测失败"
 
 
-def start_heartbeat_thread(interval=300):
-    """启动心跳检测线程（每5分钟检测一次）"""
+def start_heartbeat_thread(interval=60):
+    """启动心跳检测线程（每1分钟检测一次）"""
     import time
     
     def _heartbeat_loop():
@@ -470,7 +470,7 @@ def get_card_expire_info(card_key):
 
 def get_unbind_info(card_key):
     """
-    查询解绑信息
+    查询解绑信息（加密传输）
     返回: (success, data) 或 (False, message)
     """
     machine_code = get_machine_code()
@@ -484,14 +484,17 @@ def get_unbind_info(card_key):
     }
     data['sign'] = _sign_request(data)
     
+    # 加密请求数据
+    encrypted_data = _encrypt_request_data(data)
+    
     try:
         response = requests.post(
-            f"{AUTH_SERVER_URL}/api/unbind_info",
-            json=data,
+            f"{_get_server()}/api/unbind_info",
+            json=encrypted_data,
             timeout=REQUEST_TIMEOUT
         )
         
-        result = response.json()
+        result = _decrypt_response_data(response.json())
         if result.get('success'):
             return True, result.get('data', {})
         return False, result.get('message', '查询失败')
@@ -502,7 +505,7 @@ def get_unbind_info(card_key):
 
 def unbind_card(card_key):
     """
-    用户自助解绑（扣除8小时）
+    用户自助解绑（扣除8小时，加密传输）
     返回: (success, message, expire_info)
     """
     machine_code = get_machine_code()
@@ -516,14 +519,17 @@ def unbind_card(card_key):
     }
     data['sign'] = _sign_request(data)
     
+    # 加密请求数据
+    encrypted_data = _encrypt_request_data(data)
+    
     try:
         response = requests.post(
-            f"{AUTH_SERVER_URL}/api/unbind",
-            json=data,
+            f"{_get_server()}/api/unbind",
+            json=encrypted_data,
             timeout=REQUEST_TIMEOUT
         )
         
-        result = response.json()
+        result = _decrypt_response_data(response.json())
         if result.get('success'):
             # 清除本地登录信息
             clear_local_auth()

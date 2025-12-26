@@ -9,6 +9,7 @@
 """
 
 import os
+import re
 import hashlib
 import sqlite3
 import time
@@ -51,91 +52,66 @@ request_logger.setLevel(logging.INFO)
 # ========== 配置 ==========
 DATA_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(DATA_DIR, 'cards.db')
-API_SECRET = os.environ.get('AUTH_API_SECRET', 'BabyBus2024SecretKey')
-ENCRYPT_KEY = os.environ.get('AUTH_ENCRYPT_KEY', 'BabyBusEncrypt2024Key!')  # 与客户端一致
 
-# ========== AES加密（替代XOR） ==========
+# 加载 .env 文件（如果存在）
+ENV_FILE = os.path.join(DATA_DIR, '.env')
+if os.path.exists(ENV_FILE):
+    with open(ENV_FILE, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, value = line.split('=', 1)
+                os.environ.setdefault(key.strip(), value.strip())
+
+# 密钥配置（必须通过环境变量或 .env 文件设置）
+API_SECRET = os.environ.get('AUTH_API_SECRET')
+ENCRYPT_KEY = os.environ.get('AUTH_ENCRYPT_KEY')
+
+if not API_SECRET or not ENCRYPT_KEY:
+    raise RuntimeError('请在 .env 文件或环境变量中设置 AUTH_API_SECRET 和 AUTH_ENCRYPT_KEY')
+
+# ========== AES加密 ==========
 def get_aes_key():
     """获取AES密钥（32字节）"""
     return hashlib.sha256(ENCRYPT_KEY.encode()).digest()
 
 def aes_encrypt(data):
     """AES加密"""
-    try:
-        from Crypto.Cipher import AES
-        from Crypto.Util.Padding import pad
-        key = get_aes_key()
-        cipher = AES.new(key, AES.MODE_CBC)
-        encrypted = cipher.iv + cipher.encrypt(pad(data.encode('utf-8'), AES.block_size))
-        return base64.b64encode(encrypted).decode('utf-8')
-    except ImportError:
-        # 降级到XOR（兼容旧版本）
-        return xor_encrypt(data, ENCRYPT_KEY)
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import pad
+    key = get_aes_key()
+    cipher = AES.new(key, AES.MODE_CBC)
+    encrypted = cipher.iv + cipher.encrypt(pad(data.encode('utf-8'), AES.block_size))
+    return base64.b64encode(encrypted).decode('utf-8')
 
 def aes_decrypt(encrypted_data):
     """AES解密"""
-    try:
-        from Crypto.Cipher import AES
-        from Crypto.Util.Padding import unpad
-        key = get_aes_key()
-        data = base64.b64decode(encrypted_data)
-        iv = data[:16]
-        cipher = AES.new(key, AES.MODE_CBC, iv)
-        decrypted = unpad(cipher.decrypt(data[16:]), AES.block_size)
-        return decrypted.decode('utf-8')
-    except ImportError:
-        # 降级到XOR
-        return xor_decrypt(encrypted_data, ENCRYPT_KEY)
-    except:
-        return None
-
-# 兼容旧版XOR加密
-def xor_encrypt(data, key):
-    key_bytes = key.encode('utf-8')
-    data_bytes = data.encode('utf-8')
-    encrypted = bytes([data_bytes[i] ^ key_bytes[i % len(key_bytes)] for i in range(len(data_bytes))])
-    return base64.b64encode(encrypted).decode('utf-8')
-
-def xor_decrypt(encrypted_data, key):
-    try:
-        key_bytes = key.encode('utf-8')
-        data_bytes = base64.b64decode(encrypted_data)
-        decrypted = bytes([data_bytes[i] ^ key_bytes[i % len(key_bytes)] for i in range(len(data_bytes))])
-        return decrypted.decode('utf-8')
-    except:
-        return None
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import unpad
+    key = get_aes_key()
+    data = base64.b64decode(encrypted_data)
+    iv = data[:16]
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    decrypted = unpad(cipher.decrypt(data[16:]), AES.block_size)
+    return decrypted.decode('utf-8')
 
 def decrypt_request():
-    """解密请求数据（支持AES和XOR，兼容新旧密钥）"""
+    """解密请求数据"""
     data = request.get_json() or {}
     if 'encrypted' in data:
-        version = data.get('v', '2')
-        if version == '3':
-            # AES加密
+        try:
             decrypted = aes_decrypt(data['encrypted'])
-        else:
-            # XOR加密 - 先尝试新密钥，再尝试旧密钥
-            decrypted = xor_decrypt(data['encrypted'], ENCRYPT_KEY)
-            if not decrypted:
-                # 尝试旧密钥
-                old_key = 'BabyBusEncrypt2024'
-                decrypted = xor_decrypt(data['encrypted'], old_key)
-        if decrypted:
-            try:
+            if decrypted:
                 return json.loads(decrypted)
-            except:
-                pass
+        except:
+            pass
     return data
 
-def encrypt_response(data, use_aes=True):
-    """加密响应数据（默认使用AES）"""
+def encrypt_response(data):
+    """加密响应数据"""
     json_str = json.dumps(data, ensure_ascii=False)
-    if use_aes:
-        encrypted = aes_encrypt(json_str)
-        return jsonify({'encrypted': encrypted, 'v': '3'})
-    else:
-        encrypted = xor_encrypt(json_str, ENCRYPT_KEY)
-        return jsonify({'encrypted': encrypted, 'v': '2'})
+    encrypted = aes_encrypt(json_str)
+    return jsonify({'encrypted': encrypted, 'v': '3'})
 
 # ========== 请求日志中间件 ==========
 @app.before_request
@@ -321,6 +297,37 @@ def row_to_dict(row):
         'total_deducted_hours': row['total_deducted_hours'] or 0
     }
 
+
+# ========== 输入验证函数 ==========
+def _validate_card_key(card_key):
+    """验证卡密格式（只允许字母数字）"""
+    if not card_key or len(card_key) > 50:
+        return False
+    return bool(re.match(r'^[A-Z0-9]+$', card_key))
+
+
+def _validate_machine_code(machine_code):
+    """验证机器码格式（只允许字母数字和连字符）"""
+    if not machine_code or len(machine_code) > 50:
+        return False
+    return bool(re.match(r'^[A-Z0-9\-]+$', machine_code, re.IGNORECASE))
+
+
+# 解绑频率限制（每个IP每分钟最多3次）
+unbind_rate_limit = defaultdict(list)
+
+
+def _check_unbind_rate_limit(ip):
+    """检查解绑频率限制"""
+    now = datetime.now().timestamp()
+    # 清理1分钟前的记录
+    unbind_rate_limit[ip] = [t for t in unbind_rate_limit[ip] if now - t < 60]
+    if len(unbind_rate_limit[ip]) >= 3:
+        return False
+    unbind_rate_limit[ip].append(now)
+    return True
+
+
 # ========== API接口 ==========
 @app.route('/api/verify', methods=['POST'])
 @security_check(verify_endpoint=True)
@@ -334,6 +341,15 @@ def verify_card():
     
     if not card_key or not machine_code:
         return encrypt_response({'success': False, 'message': '参数不完整'})
+    
+    # 输入验证
+    if not _validate_card_key(card_key):
+        app.logger.warning(f"Invalid card_key format from {ip}: {card_key[:20]}")
+        return encrypt_response({'success': False, 'message': '卡密格式无效'})
+    
+    if not _validate_machine_code(machine_code):
+        app.logger.warning(f"Invalid machine_code format from {ip}")
+        return encrypt_response({'success': False, 'message': '机器码格式无效'})
     
     db = get_db()
     row = db.execute('SELECT * FROM cards WHERE card_key = ?', (card_key,)).fetchone()
@@ -423,12 +439,22 @@ def verify_card():
 @verify_sign
 def heartbeat():
     """心跳检测"""
+    ip = get_client_ip()
     data = g.decrypted_data
     card_key = data.get('card_key', '').strip().upper()
     machine_code = data.get('machine_code', '').strip()
     
     if not card_key or not machine_code:
         return jsonify({'success': False, 'message': '参数不完整'})
+    
+    # 输入验证
+    if not _validate_card_key(card_key):
+        app.logger.warning(f"Invalid card_key format in heartbeat from {ip}")
+        return jsonify({'success': False, 'message': '卡密格式无效'})
+    
+    if not _validate_machine_code(machine_code):
+        app.logger.warning(f"Invalid machine_code format in heartbeat from {ip}")
+        return jsonify({'success': False, 'message': '机器码格式无效'})
     
     db = get_db()
     row = db.execute('SELECT * FROM cards WHERE card_key = ?', (card_key,)).fetchone()
@@ -453,6 +479,194 @@ def heartbeat():
         return jsonify({'success': False, 'message': '机器码不匹配'})
     
     return jsonify({'success': True, 'message': 'OK'})
+
+
+# ========== 用户解绑接口 ==========
+
+@app.route('/api/unbind_info', methods=['POST'])
+@security_check(verify_endpoint=True)
+@verify_sign
+def get_unbind_info():
+    """查询解绑信息"""
+    ip = get_client_ip()
+    
+    # 解绑专用频率限制
+    if not _check_unbind_rate_limit(ip):
+        app.logger.warning(f"Unbind info rate limit exceeded from {ip}")
+        return encrypt_response({'success': False, 'message': '请求过于频繁，请稍后再试'})
+    
+    # 使用解密后的数据
+    data = g.decrypted_data
+    
+    card_key = data.get('card_key', '').strip().upper()
+    machine_code = data.get('machine_code', '').strip()
+    
+    # 参数验证
+    if not card_key or not machine_code:
+        return encrypt_response({'success': False, 'message': '参数不完整'})
+    
+    if not _validate_card_key(card_key):
+        record_failed_attempt(ip)
+        app.logger.warning(f"Invalid card_key format from {ip}: {card_key[:20]}")
+        return encrypt_response({'success': False, 'message': '卡密格式无效'})
+    
+    if not _validate_machine_code(machine_code):
+        record_failed_attempt(ip)
+        app.logger.warning(f"Invalid machine_code format from {ip}")
+        return encrypt_response({'success': False, 'message': '机器码格式无效'})
+    
+    db = get_db()
+    row = db.execute('SELECT * FROM cards WHERE card_key = ?', (card_key,)).fetchone()
+    
+    if not row:
+        record_failed_attempt(ip)
+        log_access(card_key, ip, 'unbind_info', 'fail', '卡密不存在')
+        return encrypt_response({'success': False, 'message': '卡密不存在'})
+    
+    unbind_count = row['unbind_count'] or 0
+    max_unbind_count = row['max_unbind_count'] if row['max_unbind_count'] is not None else 3
+    remaining = max(0, max_unbind_count - unbind_count)
+    is_bound = bool(row['machine_code'])
+    
+    log_access(card_key, ip, 'unbind_info', 'success', '')
+    
+    return encrypt_response({
+        'success': True,
+        'data': {
+            'remaining': remaining,
+            'deduct_hours': 8,
+            'is_bound': is_bound,
+            'unbind_count': unbind_count,
+            'max_unbind_count': max_unbind_count
+        }
+    })
+
+
+@app.route('/api/unbind', methods=['POST'])
+@security_check(verify_endpoint=True)
+@verify_sign
+def user_unbind():
+    """用户自助解绑（扣除8小时）"""
+    ip = get_client_ip()
+    
+    # 解绑专用频率限制
+    if not _check_unbind_rate_limit(ip):
+        app.logger.warning(f"Unbind rate limit exceeded from {ip}")
+        return encrypt_response({'success': False, 'message': '请求过于频繁，请稍后再试'})
+    
+    # 使用解密后的数据
+    data = g.decrypted_data
+    
+    card_key = data.get('card_key', '').strip().upper()
+    machine_code = data.get('machine_code', '').strip()
+    
+    # 参数验证
+    if not card_key or not machine_code:
+        return encrypt_response({'success': False, 'message': '参数不完整'})
+    
+    if not _validate_card_key(card_key):
+        record_failed_attempt(ip)
+        app.logger.warning(f"Invalid card_key format from {ip}: {card_key[:20]}")
+        return encrypt_response({'success': False, 'message': '卡密格式无效'})
+    
+    if not _validate_machine_code(machine_code):
+        record_failed_attempt(ip)
+        app.logger.warning(f"Invalid machine_code format from {ip}")
+        return encrypt_response({'success': False, 'message': '机器码格式无效'})
+    
+    db = get_db()
+    row = db.execute('SELECT * FROM cards WHERE card_key = ?', (card_key,)).fetchone()
+    
+    if not row:
+        record_failed_attempt(ip)
+        log_access(card_key, ip, 'unbind', 'fail', '卡密不存在')
+        return encrypt_response({'success': False, 'message': '卡密不存在'})
+    
+    if not row['machine_code']:
+        return encrypt_response({'success': False, 'message': '该卡密未绑定设备'})
+    
+    unbind_count = row['unbind_count'] or 0
+    max_unbind_count = row['max_unbind_count'] if row['max_unbind_count'] is not None else 3
+    
+    if unbind_count >= max_unbind_count:
+        log_access(card_key, ip, 'unbind', 'fail', '解绑次数已用完')
+        return encrypt_response({'success': False, 'message': '解绑次数已用完'})
+    
+    # 扣除8小时
+    from datetime import timedelta
+    deduct_hours = 8
+    expire_date = row['expire_date']
+    new_expire_date = None
+    
+    if expire_date:
+        if ' ' in expire_date:
+            expire_dt = datetime.strptime(expire_date, '%Y-%m-%d %H:%M:%S')
+        else:
+            expire_dt = datetime.strptime(expire_date, '%Y-%m-%d')
+            expire_dt = expire_dt.replace(hour=23, minute=59, second=59)
+        
+        new_expire_dt = expire_dt - timedelta(hours=deduct_hours)
+        new_expire_date = new_expire_dt.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # 检查扣除后是否已过期
+        if new_expire_dt < datetime.now():
+            log_access(card_key, ip, 'unbind', 'fail', '剩余时间不足')
+            return encrypt_response({'success': False, 'message': '剩余时间不足，无法解绑'})
+    
+    # 更新数据库
+    total_deducted = (row['total_deducted_hours'] or 0) + deduct_hours
+    
+    if new_expire_date:
+        db.execute('''UPDATE cards SET 
+            machine_code = NULL, 
+            bind_time = NULL, 
+            unbind_count = ?, 
+            total_deducted_hours = ?,
+            expire_date = ?
+            WHERE card_key = ?''', 
+            (unbind_count + 1, total_deducted, new_expire_date, card_key))
+    else:
+        db.execute('''UPDATE cards SET 
+            machine_code = NULL, 
+            bind_time = NULL, 
+            unbind_count = ?, 
+            total_deducted_hours = ?
+            WHERE card_key = ?''', 
+            (unbind_count + 1, total_deducted, card_key))
+    
+    db.commit()
+    
+    # 计算剩余时间
+    days_left = hours_left = minutes_left = seconds_left = -1
+    expire_datetime = None
+    
+    if new_expire_date:
+        new_expire_dt = datetime.strptime(new_expire_date, '%Y-%m-%d %H:%M:%S')
+        expire_datetime = new_expire_date
+        delta = new_expire_dt - datetime.now()
+        total_seconds = max(0, delta.total_seconds())
+        days_left = int(total_seconds // 86400)
+        hours_left = int((total_seconds % 86400) // 3600)
+        minutes_left = int((total_seconds % 3600) // 60)
+        seconds_left = int(total_seconds % 60)
+    
+    log_access(card_key, ip, 'unbind', 'success', f'deducted {deduct_hours}h')
+    app.logger.info(f"Card unbound by user: {card_key} from {ip}, deducted {deduct_hours}h")
+    
+    return encrypt_response({
+        'success': True,
+        'message': f'解绑成功，已扣除{deduct_hours}小时',
+        'data': {
+            'expire_date': new_expire_date or '永久',
+            'expire_datetime': expire_datetime or '永久',
+            'days_left': days_left,
+            'hours_left': hours_left,
+            'minutes_left': minutes_left,
+            'seconds_left': seconds_left,
+            'remaining_unbind': max_unbind_count - unbind_count - 1
+        }
+    })
+
 
 # ========== 管理接口 ==========
 def admin_required(func):
