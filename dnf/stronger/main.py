@@ -1040,22 +1040,23 @@ def judge_is_target_door(current_room, door_box, hero_box, next_room_direction, 
                     break
 
         # 首先排除入口门：如果检测到的门在入口方向，直接返回False
-        # previous 表示进入当前房间的方向，入口门在 previous 的反方向
-        if previous == 'RIGHT' and door_box[0] > img0.shape[1] * 5 // 6:
-            # 从右边进来的，入口门在右边，当前门在右边，是入口门
-            logger.debug("判断是否是目标门，门在右边是入口门，否")
-            return False
-        if previous == 'LEFT' and door_box[0] < img0.shape[1] // 6:
-            # 从左边进来的，入口门在左边，当前门在左边，是入口门
+        # previous 表示进入当前房间的移动方向，入口门在 previous 的反方向
+        # 例如：往RIGHT走进来的，入口门在LEFT（左边）
+        if previous == 'RIGHT' and door_box[0] < img0.shape[1] // 6:
+            # 往右走进来的，入口门在左边，当前门在左边，是入口门
             logger.debug("判断是否是目标门，门在左边是入口门，否")
             return False
-        if previous == 'UP' and door_box[1] < img0.shape[0] * 0.5:
-            # 从上边进来的，入口门在上边，当前门在上边，是入口门
-            logger.debug("判断是否是目标门，门在上边是入口门，否")
+        if previous == 'LEFT' and door_box[0] > img0.shape[1] * 5 // 6:
+            # 往左走进来的，入口门在右边，当前门在右边，是入口门
+            logger.debug("判断是否是目标门，门在右边是入口门，否")
             return False
-        if previous == 'DOWN' and door_box[1] > img0.shape[0] * 0.7:
-            # 从下边进来的，入口门在下边，当前门在下边，是入口门
+        if previous == 'UP' and door_box[1] > img0.shape[0] * 0.7:
+            # 往上走进来的，入口门在下边，当前门在下边，是入口门
             logger.debug("判断是否是目标门，门在下边是入口门，否")
+            return False
+        if previous == 'DOWN' and door_box[1] < img0.shape[0] * 0.5:
+            # 往下走进来的，入口门在上边，当前门在上边，是入口门
+            logger.debug("判断是否是目标门，门在上边是入口门，否")
             return False
 
         # 然后判断是否是目标门
